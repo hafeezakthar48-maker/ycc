@@ -49,6 +49,13 @@ function postingLabel(voucher: VoucherCenterRecord) {
   return voucher.posting_status === "posted" ? "已过账" : "未过账";
 }
 
+function formalJournalLabel(voucher: VoucherCenterRecord) {
+  if (voucher.journal_reversal_entry_id) {
+    return `冲销分录 ${voucher.journal_reversal_entry_id}`;
+  }
+  return voucher.journal_entry_id ? `正式分录 ${voucher.journal_entry_id}` : "未正式过账";
+}
+
 function toRequest(voucher: VoucherCenterRecord): VoucherCenterCreateRequest {
   return {
     voucher_date: voucher.voucher_date,
@@ -267,7 +274,7 @@ export default function VoucherCenterPanel() {
               >
                 <strong>{voucher.voucher_number}</strong>
                 <span>{reviewLabel(voucher)} · {postingLabel(voucher)} · {voucher.voucher_date}</span>
-                <small>{voucher.summary} · {money(voucher.total_amount_with_tax)}</small>
+                <small>{voucher.summary} · {money(voucher.total_amount_with_tax)} · {formalJournalLabel(voucher)}</small>
               </button>
             )) : <p className="muted">暂无凭证，请先新增或导入。</p>}
           </div>

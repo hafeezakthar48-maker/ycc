@@ -36,6 +36,8 @@ export interface VoucherCenterRecord extends VoucherCenterCreateRequest {
   posting_status: "unposted" | "posted" | string;
   posted_by: string | null;
   posted_at: string | null;
+  journal_entry_id: string | null;
+  journal_reversal_entry_id: string | null;
   audit_result: AuditResponse | null;
   attachments: VoucherAttachment[];
 }

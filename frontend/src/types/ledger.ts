@@ -26,6 +26,7 @@ export interface LedgerDetailLine {
 }
 
 export interface GeneralLedgerResponse {
+  source: string;
   period: string;
   voucher_count: number;
   entry_count: number;
@@ -36,6 +37,7 @@ export interface GeneralLedgerResponse {
 }
 
 export interface DetailLedgerResponse {
+  source: string;
   period: string;
   account_code: string;
   account_name: string;
@@ -48,6 +50,7 @@ export interface DetailLedgerResponse {
 }
 
 export interface AccountBalanceTableResponse {
+  source: string;
   period: string;
   account_count: number;
   total_debit: MoneyValue;

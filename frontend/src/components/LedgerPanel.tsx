@@ -33,6 +33,10 @@ function periodStatusLabel(period: AccountingPeriodItem | null) {
   return period.status === "closed" ? "已关闭" : "开放";
 }
 
+function ledgerSourceLabel(source?: string) {
+  return source === "formal_journal_entries" ? "正式分录" : "MVP凭证工作流";
+}
+
 export default function LedgerPanel({ period }: LedgerPanelProps) {
   const [generalLedger, setGeneralLedger] = useState<GeneralLedgerResponse | null>(null);
   const [balanceTable, setBalanceTable] = useState<AccountBalanceTableResponse | null>(null);
@@ -154,6 +158,7 @@ export default function LedgerPanel({ period }: LedgerPanelProps) {
         </div>
         <div className="qa-status-strip">
           <span>{period}</span>
+          <span>{ledgerSourceLabel(generalLedger?.source)}</span>
           <span>{generalLedger?.balanced ? "借贷平衡" : "待复核"}</span>
           <span>{isLoading ? "读取中" : `${generalLedger?.voucher_count ?? 0} 张已审核凭证`}</span>
         </div>

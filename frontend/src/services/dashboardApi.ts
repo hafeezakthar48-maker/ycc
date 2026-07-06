@@ -2,6 +2,7 @@ import type {
   AuditRequest,
   AuditResponse
 } from "../types/audit";
+import type { AccountListResponse, JournalEntryListResponse } from "../types/accounting";
 import type {
   AnalyzeResponse,
   DashboardOverview,
@@ -409,6 +410,36 @@ export function fetchAccountBalanceTable(
 ): Promise<AccountBalanceTableResponse> {
   return requestLedgerJson<AccountBalanceTableResponse>(
     withAccountSet(`/api/v1/ledger/account-balances?period=${encodeURIComponent(period)}`, accountSetId),
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchAccountingAccounts(
+  accountSetId = "default",
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AccountListResponse> {
+  return requestLedgerJson<AccountListResponse>(
+    `/api/v1/accounting/accounts?account_set_id=${encodeURIComponent(accountSetId)}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchJournalEntries(
+  accountSetId = "default",
+  period: string | null = null,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<JournalEntryListResponse> {
+  const periodQuery = period ? `&period=${encodeURIComponent(period)}` : "";
+  return requestLedgerJson<JournalEntryListResponse>(
+    `/api/v1/accounting/journal-entries?account_set_id=${encodeURIComponent(accountSetId)}${periodQuery}`,
     apiBase,
     fetcher,
     actorId

@@ -22,6 +22,9 @@ function money(value: MoneyValue) {
 }
 
 function sourceLabel(source: string) {
+  if (source === "formal_journal_entries") {
+    return "正式分录";
+  }
   return source === "reviewed_vouchers" ? "已审核凭证" : "样例经营数据";
 }
 
