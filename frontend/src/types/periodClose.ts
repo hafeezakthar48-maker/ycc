@@ -19,7 +19,8 @@ export type PeriodCloseActionType =
   | "tax_accrual"
   | "fx_revaluation"
   | "profit_loss_carryforward"
-  | "year_end_profit_distribution";
+  | "year_end_profit_distribution"
+  | "bad_debt_provision";
 
 export interface PeriodCloseRun {
   run_id: string;

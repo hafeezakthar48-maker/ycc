@@ -18,6 +18,7 @@
       { "label": "凭证中心", "anchor": "voucher-center" },
       { "label": "会计档案", "anchor": "accounting-archive-panel" },
       { "label": "账簿视图", "anchor": "ledger-panel" },
+      { "label": "往来核算", "anchor": "receivable-payable-panel" },
       { "label": "固定资产", "anchor": "fixed-asset-panel" },
       { "label": "工资管理", "anchor": "payroll-panel" },
       { "label": "期间结账", "anchor": "period-close-panel" },
@@ -26,8 +27,8 @@
       { "label": "自动审核", "anchor": "audit-review" },
       { "label": "管理报表", "anchor": "report" }
     ],
-    "roadmap": ["智能记账", "凭证中心", "总账", "会计期间", "固定资产", "工资管理", "报表", "多账套", "多币种"],
-    "nextIntegration": "已接入凭证持久化、账簿读模型、会计期间状态、固定资产台账、工资管理和标准财务报表；下一步增强多账套、多币种和报表导出联动。"
+    "roadmap": ["智能记账", "凭证中心", "总账", "往来核算", "会计期间", "固定资产", "工资管理", "报表", "多账套", "多币种"],
+    "nextIntegration": "已接入凭证持久化、账簿读模型、往来核算、会计期间状态、固定资产台账、工资管理和标准财务报表；下一步增强银行对账、存货成本和专业子模块联动。"
   },
   {
     "id": "tax-center",

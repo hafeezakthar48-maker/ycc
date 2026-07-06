@@ -19,6 +19,7 @@ import MetricCard from "./MetricCard";
 import PayrollPanel from "./PayrollPanel";
 import PeriodClosePanel from "./PeriodClosePanel";
 import PolicyLibraryPanel from "./PolicyLibraryPanel";
+import ReceivablePayablePanel from "./ReceivablePayablePanel";
 import ReportPanel from "./ReportPanel";
 import RiskPanel from "./RiskPanel";
 import StatementArchivePanel from "./StatementArchivePanel";
@@ -119,6 +120,7 @@ export default function DashboardLayout({ modules, homeDashboard, overview, repo
           <VoucherCenterPanel />
           <AccountingArchivePanel period={overview.period} />
           <LedgerPanel period={overview.period} />
+          <ReceivablePayablePanel period={overview.period} />
           <FixedAssetPanel period={overview.period} />
           <PayrollPanel period={overview.period} />
           <PeriodClosePanel period={overview.period} />

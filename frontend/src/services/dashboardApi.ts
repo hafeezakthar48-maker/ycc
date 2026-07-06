@@ -72,6 +72,11 @@ import type {
 } from "../types/periodClose";
 import type { PolicySearchResponse } from "../types/policy";
 import type {
+  CounterpartyAgingResponse,
+  CounterpartyBalanceResponse,
+  OpenItemType
+} from "../types/receivablePayable";
+import type {
   VoucherCenterCreateRequest,
   VoucherCenterImportResponse,
   VoucherCenterListResponse,
@@ -470,6 +475,39 @@ export function fetchAccountBalanceTable(
 ): Promise<AccountBalanceTableResponse> {
   return requestLedgerJson<AccountBalanceTableResponse>(
     withAccountSet(`/api/v1/ledger/account-balances?period=${encodeURIComponent(period)}`, accountSetId),
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchCounterpartyBalances(
+  accountSetId = "default",
+  period: string,
+  openItemType: OpenItemType,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<CounterpartyBalanceResponse> {
+  return requestLedgerJson<CounterpartyBalanceResponse>(
+    `/api/v1/receivable-payable/balances?account_set_id=${encodeURIComponent(accountSetId)}&period=${encodeURIComponent(period)}&open_item_type=${openItemType}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchCounterpartyAging(
+  accountSetId = "default",
+  period: string,
+  openItemType: OpenItemType,
+  asOfDate: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<CounterpartyAgingResponse> {
+  return requestLedgerJson<CounterpartyAgingResponse>(
+    `/api/v1/receivable-payable/aging?account_set_id=${encodeURIComponent(accountSetId)}&period=${encodeURIComponent(period)}&open_item_type=${openItemType}&as_of_date=${encodeURIComponent(asOfDate)}`,
     apiBase,
     fetcher,
     actorId
