@@ -12,6 +12,7 @@ from app.api.invoice_ocr import router as invoice_ocr_router
 from app.api.ledger import router as ledger_router
 from app.api.modules import router as modules_router
 from app.api.payroll import router as payroll_router
+from app.api.period_close import router as period_close_router
 from app.api.policies import router as policies_router
 from app.api.risk_closures import router as risk_closures_router
 from app.api.system_admin import router as system_admin_router
@@ -31,6 +32,7 @@ def include_api_routers(app: FastAPI) -> None:
     app.include_router(invoice_ocr_router)
     app.include_router(ledger_router)
     app.include_router(payroll_router)
+    app.include_router(period_close_router)
     app.include_router(policies_router)
     app.include_router(risk_closures_router)
     app.include_router(system_admin_router)

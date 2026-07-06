@@ -80,3 +80,20 @@ class TaxAccrualRule(BaseModel):
     base_account_codes: list[str] = Field(min_length=1, max_length=20)
     debit_account_code: str = Field(min_length=1, max_length=32)
     credit_account_code: str = Field(default="2221", min_length=1, max_length=32)
+
+
+class PeriodCloseCheckRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+
+
+class PeriodCloseGenerateRequest(PeriodCloseCheckRequest):
+    actions: list[PeriodCloseActionType] = Field(min_length=1, max_length=10)
+    generated_by: str = Field(min_length=1, max_length=60)
+    force_regenerate: bool = False
+
+
+class PeriodClosePeriodRequest(PeriodCloseCheckRequest):
+    operator: str = Field(min_length=1, max_length=60)
