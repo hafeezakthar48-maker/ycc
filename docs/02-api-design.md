@@ -217,6 +217,27 @@ POST /api/v1/accounting/journal-entries
 
 外币分录行必须同时提交 `currency`、`original_amount`、`exchange_rate` 和 `base_amount`，后端会校验 `original_amount * exchange_rate == base_amount`。当分录行币种不是账套本位币时，后端还会校验该日期、该账套下的汇率表记录。汇率维护接口受 `accounting.exchange_rate.read` / `accounting.exchange_rate.write` 权限控制；正式分录创建接口受 `accounting.entry.post` 权限控制。
 
+## 辅助核算维度三期
+
+```text
+GET /api/v1/accounting/dimensions?account_set_id=default
+GET /api/v1/accounting/dimensions?account_set_id=default&dimension_type=customer
+POST /api/v1/accounting/dimensions
+GET /api/v1/ledger/detail?period=2026-06&account_code=1122&dimension_type=customer&dimension_code=CUST-SH-001
+```
+
+正式分录行支持：
+
+```json
+{
+  "dimensions": [
+    { "dimension_type": "customer", "dimension_code": "CUST-SH-001" }
+  ]
+}
+```
+
+后端会校验维度主数据存在且启用，并在正式分录行中保存维度名称快照。
+
 ## 账簿读模型 MVP
 
 ```text
