@@ -206,6 +206,17 @@ POST /api/v1/vouchers/center/{voucher_id}/unpost
 
 `post` 会生成正式分录，`unpost` 会生成冲销分录。已关闭期间拒绝正式过账和反过账。正式核算读取接口支持 `X-Actor-Id` 请求头，非 `system` 调用方必须具备 `accounting.account.read` 或 `accounting.entry.read` 权限；成功或拒绝都会记录 `accounting.*` 审计日志。
 
+## 多币种核算二期
+
+```text
+GET /api/v1/accounting/currencies
+GET /api/v1/accounting/exchange-rates?account_set_id=default
+POST /api/v1/accounting/exchange-rates
+POST /api/v1/accounting/journal-entries
+```
+
+外币分录行必须同时提交 `currency`、`original_amount`、`exchange_rate` 和 `base_amount`，后端会校验 `original_amount * exchange_rate == base_amount`。当分录行币种不是账套本位币时，后端还会校验该日期、该账套下的汇率表记录。汇率维护接口受 `accounting.exchange_rate.read` / `accounting.exchange_rate.write` 权限控制；正式分录创建接口受 `accounting.entry.post` 权限控制。
+
 ## 账簿读模型 MVP
 
 ```text
