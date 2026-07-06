@@ -12,6 +12,9 @@ from fastapi import HTTPException
 from app.models.accounting import (
     AccountItem,
     AccountListResponse,
+    AuxiliaryDimensionCreate,
+    AuxiliaryDimensionListResponse,
+    AuxiliaryDimensionRecord,
     CurrencyItem,
     CurrencyListResponse,
     ExchangeRateCreate,
@@ -57,6 +60,7 @@ _SUPPORTED_CURRENCIES: tuple[CurrencyItem, ...] = (
     CurrencyItem(currency_code="EUR", currency_name="欧元", decimal_places=2),
     CurrencyItem(currency_code="HKD", currency_name="港币", decimal_places=2),
 )
+SUPPORTED_DIMENSION_TYPES = ("customer", "supplier", "employee", "department", "project", "asset", "platform", "sku")
 
 
 def reset_accounting_store() -> None:
@@ -64,6 +68,7 @@ def reset_accounting_store() -> None:
         connection.execute("DELETE FROM journal_entries")
         connection.execute("DELETE FROM journal_sequences")
         connection.execute("DELETE FROM exchange_rates")
+        connection.execute("DELETE FROM auxiliary_dimensions")
 
 
 def get_chart_of_accounts(account_set_id: str = "default") -> AccountListResponse:
@@ -144,6 +149,66 @@ def list_exchange_rates(account_set_id: str = "default") -> ExchangeRateListResp
     return ExchangeRateListResponse(
         account_set_id=account_set_id,
         rates=[ExchangeRateRecord.model_validate_json(row["payload_json"]) for row in rows],
+    )
+
+
+def upsert_auxiliary_dimension(request: AuxiliaryDimensionCreate) -> AuxiliaryDimensionRecord:
+    validate_account_set(request.account_set_id)
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    dimension_id = f"{request.account_set_id}:{request.dimension_type}:{request.dimension_code}"
+    record = AuxiliaryDimensionRecord(id=dimension_id, updated_at=now, **request.model_dump())
+    with _connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO auxiliary_dimensions (
+                id, account_set_id, dimension_type, dimension_code, payload_json, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+                payload_json = excluded.payload_json,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                record.id,
+                record.account_set_id,
+                record.dimension_type,
+                record.dimension_code,
+                record.model_dump_json(),
+            ),
+        )
+    return record
+
+
+def get_auxiliary_dimension(account_set_id: str, dimension_type: str, dimension_code: str) -> AuxiliaryDimensionRecord:
+    validate_account_set(account_set_id)
+    dimension_id = f"{account_set_id}:{dimension_type}:{dimension_code}"
+    with _connection() as connection:
+        row = connection.execute("SELECT payload_json FROM auxiliary_dimensions WHERE id = ?", (dimension_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"辅助核算维度不存在：{dimension_type}:{dimension_code}")
+    return AuxiliaryDimensionRecord.model_validate_json(row["payload_json"])
+
+
+def list_auxiliary_dimensions(
+    account_set_id: str = "default",
+    dimension_type: str | None = None,
+) -> AuxiliaryDimensionListResponse:
+    validate_account_set(account_set_id)
+    query = "SELECT payload_json FROM auxiliary_dimensions WHERE account_set_id = ?"
+    params: list[str] = [account_set_id]
+    if dimension_type:
+        query += " AND dimension_type = ?"
+        params.append(dimension_type)
+    query += " ORDER BY dimension_type, dimension_code"
+    with _connection() as connection:
+        rows = connection.execute(query, params).fetchall()
+    dimensions = [AuxiliaryDimensionRecord.model_validate_json(row["payload_json"]) for row in rows]
+    return AuxiliaryDimensionListResponse(
+        account_set_id=account_set_id,
+        dimension_type=dimension_type,
+        supported_dimension_types=list(SUPPORTED_DIMENSION_TYPES),
+        total=len(dimensions),
+        dimensions=dimensions,
     )
 
 
@@ -414,4 +479,19 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
     )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_exchange_rates_account_set ON exchange_rates (account_set_id, rate_date)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auxiliary_dimensions (
+            id TEXT PRIMARY KEY,
+            account_set_id TEXT NOT NULL,
+            dimension_type TEXT NOT NULL,
+            dimension_code TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_auxiliary_dimensions_lookup ON auxiliary_dimensions (account_set_id, dimension_type, dimension_code)"
     )

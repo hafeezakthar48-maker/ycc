@@ -9,6 +9,16 @@ NormalBalance = Literal["debit", "credit"]
 JournalDirection = Literal["debit", "credit"]
 JournalStatus = Literal["posted", "reversed"]
 LedgerSource = Literal["formal_journal_entries", "mvp_voucher_workflow", "sample_finance_data"]
+AuxiliaryDimensionType = Literal[
+    "customer",
+    "supplier",
+    "employee",
+    "department",
+    "project",
+    "asset",
+    "platform",
+    "sku",
+]
 
 
 class AccountItem(BaseModel):
@@ -65,6 +75,31 @@ class ExchangeRateListResponse(BaseModel):
 
     account_set_id: str
     rates: list[ExchangeRateRecord]
+
+
+class AuxiliaryDimensionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    dimension_type: AuxiliaryDimensionType
+    dimension_code: str = Field(min_length=1, max_length=64)
+    dimension_name: str = Field(min_length=1, max_length=120)
+    is_active: bool = True
+
+
+class AuxiliaryDimensionRecord(AuxiliaryDimensionCreate):
+    id: str
+    updated_at: str
+
+
+class AuxiliaryDimensionListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    dimension_type: AuxiliaryDimensionType | None = None
+    supported_dimension_types: list[str]
+    total: int
+    dimensions: list[AuxiliaryDimensionRecord]
 
 
 class JournalLineCreate(BaseModel):
