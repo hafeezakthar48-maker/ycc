@@ -68,6 +68,7 @@ def test_finance_center_registry_declares_ledger_read_model_api():
     assert "/api/v1/ledger" in module["api_prefixes"]
     assert "ledger.general.read" in module["audit_events"]
     assert "/api/v1/accounting-archive" in module["api_prefixes"]
+    assert "/api/v1/receivable-payable" in module["api_prefixes"]
     assert {
         "archive.document.list",
         "archive.document.get",
@@ -75,6 +76,12 @@ def test_finance_center_registry_declares_ledger_read_model_api():
         "archive.case.create",
         "archive.package.download",
         "archive.verification.update",
+    }.issubset(set(module["audit_events"]))
+    assert {
+        "receivable_payable.balance.read",
+        "receivable_payable.aging.read",
+        "receivable_payable.settle",
+        "receivable_payable.bad_debt.provision",
     }.issubset(set(module["audit_events"]))
     assert "/api/v1/period-close" in module["api_prefixes"]
     assert {
