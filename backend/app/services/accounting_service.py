@@ -24,6 +24,7 @@ from app.models.accounting import (
     JournalEntryListResponse,
     JournalEntryRecord,
     JournalLineCreate,
+    JournalLineDimensionRecord,
     JournalLineRecord,
 )
 from app.services.accounting_period_service import is_accounting_period_closed, validate_account_set
@@ -300,6 +301,7 @@ def _reverse_line(line: JournalLineRecord) -> JournalLineCreate:
         exchange_rate=line.exchange_rate,
         base_amount=line.base_amount,
         description=line.description,
+        dimensions=line.dimensions,
     )
 
 
@@ -351,15 +353,18 @@ def _build_entry(
     entry_id = f"je-{uuid4().hex[:12]}"
     entry_number = _next_entry_number(connection, period)
     posted_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    lines = [
-        JournalLineRecord(
-            id=f"jl-{uuid4().hex[:12]}",
-            journal_entry_id=entry_id,
-            line_no=index,
-            **line.model_dump(),
+    lines = []
+    for index, line in enumerate(request.lines, start=1):
+        hydrated_dimensions = _hydrate_line_dimensions(request.account_set_id, line.dimensions)
+        lines.append(
+            JournalLineRecord(
+                id=f"jl-{uuid4().hex[:12]}",
+                journal_entry_id=entry_id,
+                line_no=index,
+                **line.model_dump(exclude={"dimensions"}),
+                dimensions=hydrated_dimensions,
+            )
         )
-        for index, line in enumerate(request.lines, start=1)
-    ]
     return JournalEntryRecord(
         id=entry_id,
         account_set_id=request.account_set_id,
@@ -377,6 +382,32 @@ def _build_entry(
         reversal_of_entry_id=reversal_of_entry_id,
         lines=lines,
     )
+
+
+def _hydrate_line_dimensions(account_set_id: str, dimensions) -> list[JournalLineDimensionRecord]:
+    hydrated: list[JournalLineDimensionRecord] = []
+    seen: set[tuple[str, str]] = set()
+    for dimension in dimensions:
+        key = (dimension.dimension_type, dimension.dimension_code)
+        if key in seen:
+            raise HTTPException(status_code=422, detail=f"辅助核算维度重复：{dimension.dimension_type}:{dimension.dimension_code}")
+        seen.add(key)
+        try:
+            record = get_auxiliary_dimension(account_set_id, dimension.dimension_type, dimension.dimension_code)
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                raise HTTPException(status_code=422, detail=f"辅助核算维度不存在：{dimension.dimension_type}:{dimension.dimension_code}") from exc
+            raise
+        if not record.is_active:
+            raise HTTPException(status_code=422, detail=f"辅助核算维度未启用：{dimension.dimension_type}:{dimension.dimension_code}")
+        hydrated.append(
+            JournalLineDimensionRecord(
+                dimension_type=record.dimension_type,
+                dimension_code=record.dimension_code,
+                dimension_name=record.dimension_name,
+            )
+        )
+    return hydrated
 
 
 def _insert_entry(connection: sqlite3.Connection, entry: JournalEntryRecord) -> None:

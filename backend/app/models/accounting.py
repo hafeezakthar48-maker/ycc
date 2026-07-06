@@ -102,6 +102,17 @@ class AuxiliaryDimensionListResponse(BaseModel):
     dimensions: list[AuxiliaryDimensionRecord]
 
 
+class JournalLineDimension(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dimension_type: AuxiliaryDimensionType
+    dimension_code: str = Field(min_length=1, max_length=64)
+
+
+class JournalLineDimensionRecord(JournalLineDimension):
+    dimension_name: str
+
+
 class JournalLineCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -113,6 +124,7 @@ class JournalLineCreate(BaseModel):
     exchange_rate: Decimal = Field(default=Decimal("1.000000"), gt=0, max_digits=18, decimal_places=6)
     base_amount: Decimal = Field(gt=0, max_digits=16, decimal_places=2)
     description: str = Field(default="", max_length=200)
+    dimensions: list[JournalLineDimension] = Field(default_factory=list, max_length=8)
 
 
 class JournalEntryCreate(BaseModel):
@@ -133,6 +145,7 @@ class JournalLineRecord(JournalLineCreate):
     id: str
     journal_entry_id: str
     line_no: int
+    dimensions: list[JournalLineDimensionRecord] = Field(default_factory=list)
 
 
 class JournalEntryRecord(BaseModel):
