@@ -148,8 +148,10 @@
 - 支持默认“中国企业会计准则通用报表映射”映射集，覆盖资产负债表、利润表、现金流量表和所有者权益变动表。
 - 资产负债表按期末余额取数；利润表按期间发生额取数；现金流量表按 `cash_flow_item_code` 或现金科目/对方科目规则取数；所有者权益变动表按期初权益、净利润、利润分配和期末权益取数。
 - 支持输出报表来源、已审核凭证数、资产负债平衡状态、净利率、资产负债率、现金流利润比、生成追溯 `trace_items` 和公式校验 `validation_items`。
+- 支持创建报表快照版本，记录 `content_hash`、`validation_status`、`archive_status`、创建人和锁定人；锁定不会覆盖原快照。
+- 支持从快照导出 Excel / PDF，Excel 包含四张标准报表、校验结果和追溯明细，PDF 当前为轻量归档摘要。
 - 当前报表生成为单账套、单期间 MVP，不覆盖合并报表、复杂金融工具、长期股权投资、递延所得税、现金流量表补充资料、附注披露或正式申报报表。
-- 财务报表 API 接入 `statement.generate`、`statement.validate`、`statement.mapping.view`、`statement.mapping.manage` 权限，并记录 `statement.generate`、`statement.mapping.view`、`statement.mapping.update` 审计日志。
+- 财务报表 API 接入 `statement.generate`、`statement.validate`、`statement.mapping.view`、`statement.mapping.manage`、`statement.snapshot.create`、`statement.snapshot.lock`、`statement.archive.view`、`statement.export` 权限，并记录对应生成、映射、快照、锁定、归档查看和导出审计日志。
 
 ## FRD V1.0 一级模块基线
 
@@ -170,4 +172,4 @@ China Finance AI OS 后续按十二个一级模块演进：
 - 系统管理
 - 开放平台（API）
 
-当前已落地 AI首页、财务分析、经营分析、BI基础图表、电商利润、OCR文本识别、财税法规库、AI问答、风险预警、风险闭环、系统管理底座、权限控制、审计日志、凭证中心 SQLite 持久化、过账状态模型、轻量多账套隔离、默认账套与会计期间状态、账簿读模型、固定资产台账、工资管理、财务报表自动生成、凭证草稿和自动审核的 MVP 能力。完整插件化、OAuth2、Webhook、SDK、限流和版本管理将放入后续阶段。
+当前已落地 AI首页、财务分析、经营分析、BI基础图表、电商利润、OCR文本识别、财税法规库、AI问答、风险预警、风险闭环、系统管理底座、权限控制、审计日志、凭证中心 SQLite 持久化、过账状态模型、轻量多账套隔离、默认账套与会计期间状态、账簿读模型、固定资产台账、工资管理、财务报表自动生成、报表快照归档、凭证草稿和自动审核的 MVP 能力。完整插件化、OAuth2、Webhook、SDK、限流和版本管理将放入后续阶段。

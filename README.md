@@ -27,7 +27,7 @@
 - 辅助核算维度三期：正式分录行支持客户、供应商、员工、部门、项目、资产、平台和 SKU 维度，明细账可展示并按维度过滤
 - 固定资产台账 MVP：支持新增资产、直线法自动折旧、报废、出售、盘点、账套隔离和审计日志
 - 工资管理 MVP：支持工资计算、社保、公积金、个税、实发工资、企业成本和部门工资分析
-- 财务报表自动生成 MVP：支持资产负债表、利润表、现金流量表、所有者权益变动表和管理报表摘要
+- 财务报表自动生成 MVP：支持资产负债表、利润表、现金流量表、所有者权益变动表、管理报表摘要、快照归档和 Excel/PDF 导出
 - AI 凭证草稿：支持费用采购、库存采购、销售收入三类场景，自动生成借贷分录草稿、借贷平衡检查、风险提示和法规引用
 - AI 自动审核：审核凭证分录、发票号码、摘要、交易对方、价税勾稽、借贷平衡和增值税科目方向，输出评分、评级、错误清单和整改建议
 
@@ -115,7 +115,9 @@
 - 使用默认“中国企业会计准则通用报表映射”计算报表项目：资产负债表取期末余额，利润表取期间发生额，现金流量表取现金流项目金额，所有者权益变动表取期初权益、净利润、利润分配和期末权益。
 - 现金流量表优先读取分录行 `cash_flow_item_code`；缺失时按现金科目与对方科目规则推断，并在校验结果中标记 warning。
 - 生成结果返回 `mapping_set_id`、`trace_items` 和 `validation_items`，可追溯项目编码、映射规则、来源科目、现金流项目、公式、金额和公式校验状态。
-- 接口受 `statement.generate`、`statement.validate`、`statement.mapping.view`、`statement.mapping.manage` 权限控制，并记录 `statement.generate`、`statement.mapping.view`、`statement.mapping.update` 审计事件。
+- 支持将当前期间报表生成 `StatementSnapshot` 快照，记录版本号、内容哈希、校验状态和归档状态；锁定后保留 `locked_by` / `locked_at` 审计信息。
+- 支持从快照导出 Excel 和 PDF；Excel 包含四张标准报表、校验结果和追溯明细，PDF 当前为轻量版归档摘要。
+- 接口受 `statement.generate`、`statement.validate`、`statement.mapping.view`、`statement.mapping.manage`、`statement.snapshot.create`、`statement.snapshot.lock`、`statement.archive.view`、`statement.export` 权限控制，并记录 `statement.generate`、`statement.mapping.view`、`statement.mapping.update`、`statement.snapshot.create`、`statement.snapshot.lock`、`statement.archive.view`、`statement.export` 审计事件。
 
 当前实现不覆盖合并报表、复杂金融工具、长期股权投资、递延所得税、现金流量表补充资料、附注披露、正式申报报表或审计定稿流程。
 
@@ -127,6 +129,28 @@
 
 ```powershell
 python -m pytest backend/tests/test_statement_mapping_service.py backend/tests/test_financial_statement_service.py backend/tests/test_financial_statement_api.py backend/tests/test_accounting_service.py backend/tests/test_system_admin_api.py
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
+## 报表归档导出 Phase 6
+
+后端新增快照归档和导出接口：
+
+```text
+POST /api/v1/financial-statements/snapshots
+GET /api/v1/financial-statements/snapshots?account_set_id=default&period=2026-06
+POST /api/v1/financial-statements/snapshots/{snapshot_id}/lock
+GET /api/v1/financial-statements/snapshots/{snapshot_id}/export/xlsx
+GET /api/v1/financial-statements/snapshots/{snapshot_id}/export/pdf
+```
+
+前端 AI 财务中心新增“报表归档”面板，支持按期间创建快照、查看归档版本、锁定快照，并从已保存快照导出 Excel 或 PDF。样例数据来源生成的快照会标记为 `demo_only`，用于演示流程；正式分录来源的快照可进入 `draft`、`archived` 状态。关闭期间后可以继续生成新的快照版本，但不会覆盖已锁定快照。
+
+回归命令：
+
+```powershell
+python -m pytest backend/tests/test_statement_archive_service.py backend/tests/test_statement_export_service.py backend/tests/test_financial_statement_api.py backend/tests/test_financial_statement_service.py backend/tests/test_system_admin_api.py
 npm --prefix frontend test
 npm --prefix frontend run build
 ```

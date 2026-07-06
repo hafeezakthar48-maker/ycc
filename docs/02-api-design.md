@@ -467,6 +467,11 @@ POST /api/v1/payroll/calculate
 ```text
 POST /api/v1/financial-statements/generate
 GET /api/v1/financial-statements/mapping-sets/default?account_set_id=default
+POST /api/v1/financial-statements/snapshots
+GET /api/v1/financial-statements/snapshots?account_set_id=default&period=2026-06
+POST /api/v1/financial-statements/snapshots/{snapshot_id}/lock
+GET /api/v1/financial-statements/snapshots/{snapshot_id}/export/xlsx
+GET /api/v1/financial-statements/snapshots/{snapshot_id}/export/pdf
 ```
 
 请求：
@@ -511,10 +516,32 @@ GET /api/v1/financial-statements/mapping-sets/default?account_set_id=default
 ```
 
 当前报表映射规则：资产负债表取期末余额；利润表取期间发生额；现金流量表优先读取分录行 `cash_flow_item_code`，缺失时按现金科目和对方科目推断并返回 warning；所有者权益变动表取期初权益、本期净利润、利润分配和期末权益。
-接口支持 `X-Actor-Id` 请求头，分别受 `statement.generate`、`statement.validate`、`statement.mapping.view` 和 `statement.mapping.manage` 权限控制，并记录 `statement.generate`、`statement.mapping.view` 和 `statement.mapping.update` 审计日志。
 
-接口优先基于指定账套、指定期间的正式分录生成报表；当前账套无正式分录时回退已审核凭证，无已审核凭证时回退使用内置样例经营数据生成演示报表。当前 MVP 不覆盖合并报表、复杂金融工具、长期股权投资、递延所得税、现金流量表补充资料、附注披露或正式申报报表。
-接口支持 `X-Actor-Id` 请求头，非 `system` 调用方必须具备 `statement.generate` 权限；成功或权限不足都会记录 `statement.generate` 审计日志。
+创建快照请求：
+
+```json
+{
+  "period": "2026-06",
+  "account_set_id": "default",
+  "operator": "财务主管",
+  "created_by": "finance-user"
+}
+```
+
+快照返回 `snapshot_id`、`version`、`content_hash`、`validation_status`、`archive_status`、`locked`、`created_at` 和完整 `bundle`。同一账套同一期间重复创建会生成递增版本，不覆盖既有快照。样例数据来源快照标记为 `demo_only`。
+
+锁定快照请求：
+
+```json
+{ "locked_by": "finance-manager" }
+```
+
+锁定后返回更新后的快照，记录 `locked_by` 和 `locked_at`。导出接口返回二进制文件响应，`xlsx` 的 `content-type` 为 `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`，文件包含四张标准报表、校验结果和追溯明细；`pdf` 返回轻量归档摘要。
+
+接口支持 `X-Actor-Id` 请求头，分别受 `statement.generate`、`statement.validate`、`statement.mapping.view`、`statement.mapping.manage`、`statement.snapshot.create`、`statement.snapshot.lock`、`statement.archive.view` 和 `statement.export` 权限控制，并记录 `statement.generate`、`statement.mapping.view`、`statement.mapping.update`、`statement.snapshot.create`、`statement.snapshot.lock`、`statement.archive.view` 和 `statement.export` 审计日志。
+
+生成接口优先基于指定账套、指定期间的正式分录生成报表；当前账套无正式分录时回退已审核凭证，无已审核凭证时回退使用内置样例经营数据生成演示报表。当前 MVP 不覆盖合并报表、复杂金融工具、长期股权投资、递延所得税、现金流量表补充资料、附注披露或正式申报报表。
+生成接口支持 `X-Actor-Id` 请求头，非 `system` 调用方必须具备 `statement.generate` 权限；快照和导出接口按上文权限点控制，成功或权限不足都会记录对应审计日志。
 
 ## AI 自动审核
 
