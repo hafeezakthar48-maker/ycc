@@ -3,6 +3,7 @@ from importlib import reload
 
 import app.services.voucher_center_service as voucher_service
 from app.models.voucher_center import VoucherCenterCreateRequest, VoucherCenterLine
+from app.services.accounting_archive_service import get_archive_document, reset_accounting_archive_store
 
 
 def _lines() -> list[VoucherCenterLine]:
@@ -32,12 +33,24 @@ def test_voucher_center_persists_records_after_service_reload(tmp_path, monkeypa
 
     service = reload(voucher_service)
     service.reset_voucher_store()
+    reset_accounting_archive_store()
 
     created = service.create_voucher(_request())
     reviewed = service.review_voucher(created.id, "财务主管")
-    attached = service.attach_voucher_file(reviewed.id, "invoice.txt", "text/plain", 128)
+    attached = service.attach_voucher_file(
+        reviewed.id,
+        "invoice.txt",
+        "text/plain",
+        12,
+        content_bytes=b"invoice text",
+        uploaded_by="finance-user",
+    )
+    attachment = attached.attachments[0]
+    document = get_archive_document(attachment.archive_document_id)
 
     assert attached.voucher_number == "记-202606-0001"
+    assert attachment.sha256_hash == document.sha256_hash
+    assert attachment.storage_status == "metadata_only"
     assert db_path.exists()
 
     reloaded_service = reload(service)
@@ -49,6 +62,9 @@ def test_voucher_center_persists_records_after_service_reload(tmp_path, monkeypa
     assert persisted.status == "reviewed"
     assert persisted.reviewed_by == "财务主管"
     assert persisted.attachments[0].filename == "invoice.txt"
+    assert persisted.attachments[0].archive_document_id == attachment.archive_document_id
+    assert persisted.attachments[0].sha256_hash == attachment.sha256_hash
+    assert persisted.attachments[0].storage_status == "metadata_only"
 
     next_voucher = reloaded_service.create_voucher(_request("重载后新增"))
     assert next_voucher.voucher_number == "记-202606-0002"
