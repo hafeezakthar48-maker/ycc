@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from calendar import monthrange
 from datetime import UTC, datetime
 from decimal import Decimal, ROUND_HALF_UP
@@ -165,6 +166,8 @@ def generate_period_close_actions(
             results.append(_generate_payroll_accrual(account_set_id, period, generated_by))
         elif action == "tax_accrual":
             results.append(_generate_tax_accrual(account_set_id, period, generated_by))
+        elif action == "fx_revaluation":
+            results.append(_generate_fx_revaluation(account_set_id, period, generated_by))
         else:
             raise HTTPException(status_code=422, detail=f"不支持的期末动作：{action}")
     return results
@@ -272,6 +275,46 @@ def _generate_tax_accrual(account_set_id: str, period: str, generated_by: str) -
     return _action_result(source_type, "skipped", [], Decimal("0.00"), "税费计提规则未计算出应计提金额。")
 
 
+def _generate_fx_revaluation(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:
+    source_type = "fx_revaluation"
+    from app.services.accounting_service import get_exchange_rate, get_foreign_currency_balances
+
+    balances = get_foreign_currency_balances(account_set_id, period)
+    generated_entries = []
+    existing_entries = []
+    total_amount = Decimal("0.00")
+    period_end = _period_end_date(period)
+
+    for balance in balances:
+        rate = get_exchange_rate(account_set_id, period_end, balance["currency"], "CNY")
+        expected_base_balance = _money(balance["original_balance"] * rate.rate)
+        adjustment = _money(expected_base_balance - balance["book_base_balance"])
+        source_id = _fx_source_id(account_set_id, period, balance)
+        existing = _existing_entries(account_set_id, period, source_type, source_id)
+        if existing:
+            existing_entries.extend(existing)
+            total_amount += _entry_amount(existing)
+            continue
+        if adjustment == Decimal("0.00"):
+            continue
+        entry = _post_fx_revaluation_entry(
+            account_set_id=account_set_id,
+            period=period,
+            source_id=source_id,
+            balance=balance,
+            adjustment=adjustment,
+            generated_by=generated_by,
+        )
+        generated_entries.append(entry)
+        total_amount += abs(adjustment)
+
+    if generated_entries:
+        return _action_result(source_type, "generated", generated_entries, _money(total_amount), "已生成外币期末重估分录。")
+    if existing_entries:
+        return _action_result(source_type, "existing", existing_entries, _money(total_amount), "外币期末重估分录已存在。")
+    return _action_result(source_type, "skipped", [], Decimal("0.00"), "本期间没有需要重估的外币余额。")
+
+
 def _post_grouped_entry(
     *,
     account_set_id: str,
@@ -313,6 +356,76 @@ def _post_grouped_entry(
             lines=lines,
         )
     )
+
+
+def _post_fx_revaluation_entry(
+    *,
+    account_set_id: str,
+    period: str,
+    source_id: str,
+    balance: dict,
+    adjustment: Decimal,
+    generated_by: str,
+):
+    from app.models.accounting import JournalEntryCreate, JournalLineCreate, JournalLineDimension
+    from app.services.accounting_service import get_chart_of_accounts, post_journal_entry
+
+    amount = _money(abs(adjustment))
+    account_code = balance["account_code"]
+    fx_gain_loss_code = "6603"
+    if balance["account_type"] == "asset":
+        account_direction = "debit" if adjustment > Decimal("0.00") else "credit"
+    else:
+        account_direction = "credit" if adjustment > Decimal("0.00") else "debit"
+    fx_direction = "credit" if account_direction == "debit" else "debit"
+    account_names = {account.account_code: account.account_name for account in get_chart_of_accounts(account_set_id).accounts}
+    dimensions = [
+        JournalLineDimension(
+            dimension_type=dimension["dimension_type"],
+            dimension_code=dimension["dimension_code"],
+        )
+        for dimension in balance["dimension_values"]
+    ]
+    return post_journal_entry(
+        JournalEntryCreate(
+            account_set_id=account_set_id,
+            entry_date=_period_end_date(period),
+            source_type="fx_revaluation",
+            source_id=source_id,
+            description=f"{period} {balance['currency']} 期末汇兑重估",
+            base_currency="CNY",
+            created_by=generated_by,
+            posted_by=generated_by,
+            lines=[
+                JournalLineCreate(
+                    account_code=account_code,
+                    account_name=account_names.get(account_code, balance["account_name"]),
+                    direction=account_direction,
+                    currency="CNY",
+                    original_amount=amount,
+                    exchange_rate=Decimal("1.000000"),
+                    base_amount=amount,
+                    description="外币期末重估",
+                    dimensions=dimensions,
+                ),
+                JournalLineCreate(
+                    account_code=fx_gain_loss_code,
+                    account_name=account_names.get(fx_gain_loss_code, "财务费用"),
+                    direction=fx_direction,
+                    currency="CNY",
+                    original_amount=amount,
+                    exchange_rate=Decimal("1.000000"),
+                    base_amount=amount,
+                    description="汇兑损益",
+                ),
+            ],
+        )
+    )
+
+
+def _fx_source_id(account_set_id: str, period: str, balance: dict) -> str:
+    dimension_hash = hashlib.sha1(str(balance["dimension_values"]).encode("utf-8")).hexdigest()[:10]
+    return f"fx_revaluation:{account_set_id}:{period}:{balance['account_code']}:{balance['currency']}:{dimension_hash}"
 
 
 def _collapse_rows(rows: list[tuple[str, Decimal, str]]) -> list[tuple[str, Decimal, str]]:

@@ -1,10 +1,10 @@
 from decimal import Decimal
 
-from app.models.accounting import JournalEntryCreate, JournalLineCreate
+from app.models.accounting import ExchangeRateCreate, JournalEntryCreate, JournalLineCreate
 from app.models.fixed_asset import FixedAssetCreateRequest
 from app.models.payroll import PayrollCalculateRequest, PayrollEmployeeInput
 from app.models.period_close import PeriodCloseRunCreate, TaxAccrualRule
-from app.services.accounting_service import list_journal_entries, post_journal_entry, reset_accounting_store
+from app.services.accounting_service import list_journal_entries, post_journal_entry, reset_accounting_store, upsert_exchange_rate
 from app.services.fixed_asset_service import create_fixed_asset, reset_fixed_asset_store
 from app.services.payroll_service import calculate_payroll, reset_payroll_store
 from app.services.period_close_service import (
@@ -157,3 +157,69 @@ def test_generate_tax_accrual_action_uses_configured_rule():
 
     assert results[0].status == "generated"
     assert results[0].amount == Decimal("600.00")
+
+
+def test_fx_revaluation_generates_base_currency_adjustment_only():
+    upsert_exchange_rate(
+        ExchangeRateCreate(
+            rate_date="2026-06-18",
+            source_currency="USD",
+            target_currency="CNY",
+            rate=Decimal("7.120000"),
+        )
+    )
+    upsert_exchange_rate(
+        ExchangeRateCreate(
+            rate_date="2026-06-30",
+            source_currency="USD",
+            target_currency="CNY",
+            rate=Decimal("7.200000"),
+        )
+    )
+    post_journal_entry(
+        JournalEntryCreate(
+            entry_date="2026-06-18",
+            source_type="manual_test",
+            source_id="fx-revaluation-source",
+            description="美元应收确认",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    currency="USD",
+                    original_amount=Decimal("100.00"),
+                    exchange_rate=Decimal("7.120000"),
+                    base_amount=Decimal("712.00"),
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    currency="USD",
+                    original_amount=Decimal("100.00"),
+                    exchange_rate=Decimal("7.120000"),
+                    base_amount=Decimal("712.00"),
+                ),
+            ],
+        )
+    )
+
+    first = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["fx_revaluation"],
+        generated_by="finance-user",
+    )
+    second = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["fx_revaluation"],
+        generated_by="finance-user",
+    )
+    entry = next(entry for entry in list_journal_entries("default", "2026-06").entries if entry.source_type == "fx_revaluation")
+
+    assert first[0].status == "generated"
+    assert first[0].amount == Decimal("8.00")
+    assert second[0].status == "existing"
+    assert {line.currency for line in entry.lines} == {"CNY"}

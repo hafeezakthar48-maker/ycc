@@ -312,6 +312,65 @@ def list_journal_entries_by_dimension(
     return JournalEntryListResponse(account_set_id=account_set_id, period=period, total=len(matched), entries=matched)
 
 
+def get_foreign_currency_balances(account_set_id: str, period: str) -> list[dict]:
+    validate_account_set(account_set_id)
+    account_map = {account.account_code: account for account in get_chart_of_accounts(account_set_id).accounts}
+    balances: dict[tuple[str, str, tuple[tuple[str, str, str], ...]], dict] = {}
+    for entry in list_journal_entries(account_set_id).entries:
+        if entry.status != "posted" or entry.period > period:
+            continue
+        for line in entry.lines:
+            revaluation_currency = None
+            if line.currency == entry.base_currency:
+                revaluation_currency = _fx_revaluation_currency(entry.source_type, entry.source_id, line.account_code)
+            if line.currency == entry.base_currency and revaluation_currency is None:
+                continue
+            account = account_map.get(line.account_code)
+            if account is None or account.account_type not in {"asset", "liability"}:
+                continue
+            balance_currency = revaluation_currency or line.currency
+            dimensions = tuple(
+                sorted(
+                    (dimension.dimension_type, dimension.dimension_code, dimension.dimension_name)
+                    for dimension in line.dimensions
+                )
+            )
+            key = (line.account_code, balance_currency, dimensions)
+            row = balances.setdefault(
+                key,
+                {
+                    "account_code": line.account_code,
+                    "account_name": line.account_name,
+                    "account_type": account.account_type,
+                    "normal_balance": account.normal_balance,
+                    "currency": balance_currency,
+                    "original_balance": Decimal("0.00"),
+                    "book_base_balance": Decimal("0.00"),
+                    "dimension_values": [
+                        {
+                            "dimension_type": dimension_type,
+                            "dimension_code": dimension_code,
+                            "dimension_name": dimension_name,
+                        }
+                        for dimension_type, dimension_code, dimension_name in dimensions
+                    ],
+                },
+            )
+            sign = _balance_sign(account.normal_balance, line.direction)
+            if revaluation_currency is None:
+                row["original_balance"] += line.original_amount * sign
+            row["book_base_balance"] += line.base_amount * sign
+
+    rows = []
+    for row in balances.values():
+        row["original_balance"] = row["original_balance"].quantize(TWO_PLACES)
+        row["book_base_balance"] = row["book_base_balance"].quantize(TWO_PLACES)
+        if row["original_balance"] != Decimal("0.00") or row["book_base_balance"] != Decimal("0.00"):
+            rows.append(row)
+    rows.sort(key=lambda row: (row["account_code"], row["currency"], str(row["dimension_values"])))
+    return rows
+
+
 def get_journal_entry(entry_id: str) -> JournalEntryRecord:
     with _connection() as connection:
         row = connection.execute("SELECT payload_json FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
@@ -371,6 +430,24 @@ def _validate_balance(lines: list[JournalLineCreate]) -> None:
     credit_total = sum((line.base_amount for line in lines if line.direction == "credit"), Decimal("0.00"))
     if debit_total != credit_total:
         raise HTTPException(status_code=422, detail="正式分录借贷不平衡。")
+
+
+def _balance_sign(normal_balance: str, direction: str) -> Decimal:
+    if normal_balance == "debit":
+        return Decimal("1") if direction == "debit" else Decimal("-1")
+    return Decimal("1") if direction == "credit" else Decimal("-1")
+
+
+def _fx_revaluation_currency(source_type: str, source_id: str, account_code: str) -> str | None:
+    if source_type != "fx_revaluation":
+        return None
+    parts = source_id.split(":")
+    if len(parts) != 6:
+        return None
+    _prefix, _account_set_id, _period, source_account_code, source_currency, _dimension_hash = parts
+    if source_account_code != account_code:
+        return None
+    return source_currency
 
 
 def _build_entry(

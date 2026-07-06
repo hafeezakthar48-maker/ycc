@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.models.accounting import ExchangeRateCreate, JournalEntryCreate, JournalLineCreate
 from app.services.accounting_service import (
     get_exchange_rate,
+    get_foreign_currency_balances,
     get_journal_entry,
     list_currencies,
     post_journal_entry,
@@ -95,6 +96,56 @@ def test_post_foreign_currency_entry_keeps_original_and_base_amounts():
     assert loaded.lines[0].currency == "USD"
     assert loaded.lines[0].original_amount == Decimal("100.00")
     assert loaded.lines[0].base_amount == Decimal("712.00")
+
+
+def test_get_foreign_currency_balances_groups_original_and_base_balance():
+    upsert_exchange_rate(
+        ExchangeRateCreate(
+            account_set_id="default",
+            rate_date="2026-06-18",
+            source_currency="USD",
+            target_currency="CNY",
+            rate=Decimal("7.120000"),
+        )
+    )
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2026-06-18",
+            source_type="manual_adjustment",
+            source_id="fx-balance-1",
+            description="美元应收确认",
+            base_currency="CNY",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    currency="USD",
+                    original_amount=Decimal("100.00"),
+                    exchange_rate=Decimal("7.120000"),
+                    base_amount=Decimal("712.00"),
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    currency="USD",
+                    original_amount=Decimal("100.00"),
+                    exchange_rate=Decimal("7.120000"),
+                    base_amount=Decimal("712.00"),
+                ),
+            ],
+        )
+    )
+
+    balances = get_foreign_currency_balances("default", "2026-06")
+    receivable = next(item for item in balances if item["account_code"] == "1122")
+
+    assert receivable["currency"] == "USD"
+    assert receivable["original_balance"] == Decimal("100.00")
+    assert receivable["book_base_balance"] == Decimal("712.00")
+    assert receivable["dimension_values"] == []
 
 
 def test_post_foreign_currency_entry_rejects_wrong_base_amount():
