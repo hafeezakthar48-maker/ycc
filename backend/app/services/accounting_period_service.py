@@ -70,6 +70,11 @@ def close_accounting_period(period: str, operator: str, account_set_id: str = DE
     _validate_period(period)
     validate_account_set(account_set_id)
     _validate_period_can_close(account_set_id, period)
+    from app.services.period_close_service import has_blocking_check, run_period_close_checks
+
+    checks = run_period_close_checks(account_set_id=account_set_id, period=period)
+    if has_blocking_check(checks):
+        raise HTTPException(status_code=409, detail="期间存在未通过的结账检查，不能关闭。")
     _period_states[(account_set_id, period)] = _PeriodState(
         status="closed",
         closed_by=operator,

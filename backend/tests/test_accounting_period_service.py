@@ -69,6 +69,14 @@ def test_accounting_period_can_be_closed_and_reopened():
     assert reopened.closed_at is None
 
 
+def test_close_accounting_period_rejects_unknown_period():
+    with pytest.raises(HTTPException) as exc_info:
+        close_accounting_period("2099-12", "财务主管")
+
+    assert exc_info.value.status_code == 409
+    assert "结账检查" in exc_info.value.detail
+
+
 def test_posting_rejects_closed_accounting_period():
     close_accounting_period("2026-06", "财务主管")
     voucher = create_voucher(_request("2026-06-30"))
