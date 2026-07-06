@@ -40,15 +40,20 @@ _BASE_ACCOUNTS: tuple[AccountItem, ...] = (
     AccountItem(account_set_id="default", account_code="1001", account_name="库存现金", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1002", account_name="银行存款", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1122", account_name="应收账款", account_type="asset", normal_balance="debit"),
+    AccountItem(account_set_id="default", account_code="1123", account_name="预付账款", account_type="asset", normal_balance="debit"),
+    AccountItem(account_set_id="default", account_code="1221", account_name="其他应收款", account_type="asset", normal_balance="debit"),
+    AccountItem(account_set_id="default", account_code="1231", account_name="坏账准备", account_type="asset", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="1405", account_name="库存商品", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1601", account_name="固定资产", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1602", account_name="累计折旧", account_type="asset", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="2001", account_name="短期借款", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="2202", account_name="应付账款", account_type="liability", normal_balance="credit"),
+    AccountItem(account_set_id="default", account_code="2203", account_name="预收账款", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="2211", account_name="应付职工薪酬", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="2221", account_name="应交税费", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="22210101", account_name="应交税费-应交增值税（进项税额）", account_type="liability", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="22210102", account_name="应交税费-应交增值税（销项税额）", account_type="liability", normal_balance="credit"),
+    AccountItem(account_set_id="default", account_code="2241", account_name="其他应付款", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="4001", account_name="实收资本", account_type="equity", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="4103", account_name="本年利润", account_type="equity", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="4104", account_name="利润分配-未分配利润", account_type="equity", normal_balance="credit"),
@@ -311,6 +316,45 @@ def list_journal_entries_by_dimension(
         )
     ]
     return JournalEntryListResponse(account_set_id=account_set_id, period=period, total=len(matched), entries=matched)
+
+
+def list_counterparty_journal_lines(
+    account_set_id: str,
+    period_to: str,
+    account_prefixes: list[str],
+    dimension_type: str,
+) -> list[dict]:
+    validate_account_set(account_set_id)
+    rows: list[dict] = []
+    for entry in list_journal_entries(account_set_id).entries:
+        if entry.status != "posted" or entry.entry_date[:7] > period_to:
+            continue
+        for line in entry.lines:
+            if not any(line.account_code.startswith(prefix) for prefix in account_prefixes):
+                continue
+            dimension = next((item for item in line.dimensions if item.dimension_type == dimension_type), None)
+            if dimension is None:
+                continue
+            rows.append(
+                {
+                    "entry_id": entry.id,
+                    "line_id": line.id,
+                    "entry_date": entry.entry_date,
+                    "period": entry.entry_date[:7],
+                    "source_type": entry.source_type,
+                    "source_id": entry.source_id,
+                    "account_code": line.account_code,
+                    "account_name": line.account_name,
+                    "direction": line.direction,
+                    "currency": line.currency,
+                    "original_amount": line.original_amount,
+                    "base_amount": line.base_amount,
+                    "counterparty_type": dimension.dimension_type,
+                    "counterparty_code": dimension.dimension_code,
+                    "counterparty_name": dimension.dimension_name,
+                }
+            )
+    return rows
 
 
 def get_foreign_currency_balances(account_set_id: str, period: str) -> list[dict]:
