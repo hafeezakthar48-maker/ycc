@@ -14,6 +14,12 @@ import type {
   JournalEntryListResponse
 } from "../types/accounting";
 import type {
+  ArchiveCase,
+  ArchiveCaseCreateRequest,
+  ArchiveDocumentListResponse,
+  ArchivePackageDownload
+} from "../types/accountingArchive";
+import type {
   AnalyzeResponse,
   DashboardOverview,
   ImportPreview,
@@ -826,6 +832,80 @@ export async function exportStatementSnapshot(
   const blob = await response.blob();
   const disposition = response.headers.get("content-disposition") ?? "";
   const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `financial-statements.${exportFormat}`;
+
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  return { blob, filename };
+}
+
+export function fetchAccountingArchiveDocuments(
+  accountSetId = "default",
+  period = "",
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ArchiveDocumentListResponse> {
+  const query = new URLSearchParams({ account_set_id: accountSetId });
+  if (period) {
+    query.set("period", period);
+  }
+  return fetcher(`${apiBase}/api/v1/accounting-archive/documents?${query.toString()}`, {
+    headers: { "X-Actor-Id": actorId }
+  }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`会计档案 API 请求失败：${response.status}`);
+    }
+    return response.json() as Promise<ArchiveDocumentListResponse>;
+  });
+}
+
+export function createAccountingArchiveCase(
+  request: ArchiveCaseCreateRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ArchiveCase> {
+  return fetcher(`${apiBase}/api/v1/accounting-archive/cases`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Actor-Id": actorId
+    },
+    body: JSON.stringify(request)
+  }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`会计档案案卷创建失败：${response.status}`);
+    }
+    return response.json() as Promise<ArchiveCase>;
+  });
+}
+
+export async function downloadAccountingArchivePackage(
+  archiveCaseId: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ArchivePackageDownload> {
+  const response = await fetcher(
+    `${apiBase}/api/v1/accounting-archive/cases/${encodeURIComponent(archiveCaseId)}/download`,
+    { headers: { "X-Actor-Id": actorId } }
+  );
+  if (!response.ok) {
+    throw new Error(`会计档案下载失败：${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "accounting-archive.zip";
 
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     const url = window.URL.createObjectURL(blob);

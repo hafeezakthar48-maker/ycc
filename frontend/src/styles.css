@@ -1944,7 +1944,8 @@ button:disabled {
   margin-bottom: 14px;
 }
 
-.statement-archive-panel {
+.statement-archive-panel,
+.accounting-archive-panel {
   display: grid;
   gap: 14px;
   margin-bottom: 14px;
@@ -2100,7 +2101,15 @@ button:disabled {
   min-width: 920px;
 }
 
+.accounting-archive-table {
+  min-width: 1100px;
+}
+
 .statement-archive-table td {
+  vertical-align: top;
+}
+
+.accounting-archive-table td {
   vertical-align: top;
 }
 
@@ -2110,7 +2119,17 @@ button:disabled {
   gap: 4px;
 }
 
+.accounting-archive-table td:nth-child(2) {
+  display: grid;
+  gap: 4px;
+}
+
 .statement-archive-table small {
+  color: #697586;
+  font-size: 12px;
+}
+
+.accounting-archive-table small {
   color: #697586;
   font-size: 12px;
 }
@@ -2136,14 +2155,20 @@ button:disabled {
 
 .statement-archive-status--passed,
 .statement-archive-status--archived,
-.statement-archive-status--locked {
+.statement-archive-status--locked,
+.statement-archive-status--text_parsed,
+.statement-archive-status--not_required,
+.statement-archive-status--verified {
   color: #0f6b3e;
   background: #ecfdf3;
 }
 
 .statement-archive-status--warning,
 .statement-archive-status--draft,
-.statement-archive-status--demo_only {
+.statement-archive-status--demo_only,
+.statement-archive-status--indexed,
+.statement-archive-status--pending_external,
+.statement-archive-status--engine_required {
   color: #92400e;
   background: #fff7ed;
 }

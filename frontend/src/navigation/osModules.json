@@ -16,6 +16,7 @@
     "status": "MVP",
     "items": [
       { "label": "凭证中心", "anchor": "voucher-center" },
+      { "label": "会计档案", "anchor": "accounting-archive-panel" },
       { "label": "账簿视图", "anchor": "ledger-panel" },
       { "label": "固定资产", "anchor": "fixed-asset-panel" },
       { "label": "工资管理", "anchor": "payroll-panel" },

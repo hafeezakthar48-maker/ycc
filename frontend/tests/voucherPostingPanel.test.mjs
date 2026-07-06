@@ -17,8 +17,14 @@ test("凭证中心接入过账和反过账操作", async () => {
   assert.match(types, /posted_at/);
   assert.match(types, /journal_entry_id/);
   assert.match(types, /journal_reversal_entry_id/);
+  assert.match(types, /archive_document_id/);
+  assert.match(types, /sha256_hash/);
+  assert.match(types, /storage_status/);
   assert.match(panel, /handlePost/);
   assert.match(panel, /handleUnpost/);
   assert.match(panel, /posting_status/);
   assert.match(panel, /formalJournalLabel/);
+  assert.match(panel, /archive_document_id/);
+  assert.match(panel, /sha256_hash/);
+  assert.match(panel, /storage_status/);
 });

@@ -6,6 +6,7 @@ import TrendChart from "../charts/TrendChart";
 import type { DashboardOverview, ManagementReport } from "../types/dashboard";
 import type { HomeDashboard } from "../types/homeDashboard";
 import type { NavigationOsModule } from "../types/moduleRegistry";
+import AccountingArchivePanel from "./AccountingArchivePanel";
 import AuditReviewPanel from "./AuditReviewPanel";
 import ECommerceProfitPanel from "./ECommerceProfitPanel";
 import FinanceQaPanel from "./FinanceQaPanel";
@@ -116,6 +117,7 @@ export default function DashboardLayout({ modules, homeDashboard, overview, repo
           />
           <ModuleRoadmap module={moduleById["finance-center"]} />
           <VoucherCenterPanel />
+          <AccountingArchivePanel period={overview.period} />
           <LedgerPanel period={overview.period} />
           <FixedAssetPanel period={overview.period} />
           <PayrollPanel period={overview.period} />

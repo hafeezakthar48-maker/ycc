@@ -314,7 +314,11 @@ export default function VoucherCenterPanel() {
             <button type="button" onClick={handleUpload} disabled={isBusy}>上传附件</button>
             {selectedVoucher?.attachments.length ? (
               selectedVoucher.attachments.map((attachment) => (
-                <small key={attachment.id}>{attachment.filename} · {attachment.ocr_status}</small>
+                <small key={attachment.id}>
+                  {attachment.filename} · {attachment.ocr_status} · {attachment.storage_status}
+                  {attachment.archive_document_id ? ` · ${attachment.archive_document_id}` : ""}
+                  {attachment.sha256_hash ? ` · ${attachment.sha256_hash.slice(0, 12)}` : ""}
+                </small>
               ))
             ) : <p className="muted">暂无附件。</p>}
           </div>

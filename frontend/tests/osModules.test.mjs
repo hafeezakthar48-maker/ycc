@@ -39,6 +39,7 @@ test("现有 MVP 功能归入 FRD 对应模块", async () => {
 
   assert.ok(byId["ai-home"].items.some((item) => item.anchor === "ai-home"));
   assert.ok(byId["finance-center"].items.some((item) => item.anchor === "voucher-center"));
+  assert.ok(byId["finance-center"].items.some((item) => item.anchor === "accounting-archive-panel"));
   assert.ok(byId["finance-center"].items.some((item) => item.anchor === "fixed-asset-panel"));
   assert.ok(byId["finance-center"].items.some((item) => item.anchor === "payroll-panel"));
   assert.ok(byId["finance-center"].items.some((item) => item.anchor === "financial-statements-panel"));

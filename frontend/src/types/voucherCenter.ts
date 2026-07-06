@@ -26,6 +26,9 @@ export interface VoucherAttachment {
   content_type: string;
   size: number;
   ocr_status: string;
+  archive_document_id?: string | null;
+  sha256_hash?: string | null;
+  storage_status: string;
 }
 
 export interface VoucherCenterRecord extends VoucherCenterCreateRequest {
