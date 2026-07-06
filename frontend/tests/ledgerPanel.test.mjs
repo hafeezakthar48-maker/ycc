@@ -24,4 +24,7 @@ test("AI财务中心接入总账、明细账和科目余额表面板", async () 
   assert.match(panel, /originalCurrencyText/);
   assert.match(panel, /original_amount/);
   assert.match(panel, /exchange_rate/);
+  assert.match(panel, /dimensionLabel/);
+  assert.match(panel, /辅助核算/);
+  assert.match(panel, /dimensions/);
 });

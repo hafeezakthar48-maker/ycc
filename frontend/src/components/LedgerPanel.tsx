@@ -44,6 +44,12 @@ function originalCurrencyText(line: { currency: string; original_amount: MoneyVa
   return `${money(line.original_amount)} ${line.currency} @ ${line.exchange_rate}`;
 }
 
+function dimensionLabel(dimensions: Array<{ dimension_type: string; dimension_code: string; dimension_name: string }>) {
+  return dimensions.length
+    ? dimensions.map((dimension) => `${dimension.dimension_type}:${dimension.dimension_name}`).join(" / ")
+    : "未挂维度";
+}
+
 export default function LedgerPanel({ period }: LedgerPanelProps) {
   const [generalLedger, setGeneralLedger] = useState<GeneralLedgerResponse | null>(null);
   const [balanceTable, setBalanceTable] = useState<AccountBalanceTableResponse | null>(null);
@@ -268,6 +274,7 @@ export default function LedgerPanel({ period }: LedgerPanelProps) {
                   <th>日期</th>
                   <th>凭证号</th>
                   <th>摘要</th>
+                  <th>辅助核算</th>
                   <th>借方</th>
                   <th>贷方</th>
                 </tr>
@@ -278,6 +285,7 @@ export default function LedgerPanel({ period }: LedgerPanelProps) {
                     <td>{line.voucher_date}</td>
                     <td>{line.voucher_number}</td>
                     <td>{line.summary}</td>
+                    <td>{dimensionLabel(line.dimensions ?? [])}</td>
                     <td>
                       {money(line.debit_amount)}
                       {originalCurrencyText(line) ? <small>{originalCurrencyText(line)}</small> : null}
@@ -289,13 +297,13 @@ export default function LedgerPanel({ period }: LedgerPanelProps) {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={5}>暂无已审核凭证明细</td>
+                    <td colSpan={6}>暂无已审核凭证明细</td>
                   </tr>
                 )}
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={3}>合计</td>
+                  <td colSpan={4}>合计</td>
                   <td>{money(detailLedger?.debit_total ?? 0)}</td>
                   <td>{money(detailLedger?.credit_total ?? 0)}</td>
                 </tr>

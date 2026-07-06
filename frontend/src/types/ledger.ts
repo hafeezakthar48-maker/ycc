@@ -10,6 +10,12 @@ export interface LedgerAccountSummary {
   entry_count: number;
 }
 
+export interface LedgerLineDimension {
+  dimension_type: string;
+  dimension_code: string;
+  dimension_name: string;
+}
+
 export interface LedgerDetailLine {
   voucher_id: string;
   voucher_number: string;
@@ -23,6 +29,7 @@ export interface LedgerDetailLine {
   currency: string;
   original_amount: MoneyValue;
   exchange_rate: MoneyValue;
+  dimensions: LedgerLineDimension[];
   debit_amount: MoneyValue;
   credit_amount: MoneyValue;
   status: string;

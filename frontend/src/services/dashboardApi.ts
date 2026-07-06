@@ -4,6 +4,9 @@ import type {
 } from "../types/audit";
 import type {
   AccountListResponse,
+  AuxiliaryDimensionCreateRequest,
+  AuxiliaryDimensionListResponse,
+  AuxiliaryDimensionRecord,
   CurrencyListResponse,
   ExchangeRateCreateRequest,
   ExchangeRateListResponse,
@@ -395,11 +398,17 @@ export function fetchDetailLedger(
   apiBase = API_BASE,
   fetcher: typeof fetch = fetch,
   actorId = DEFAULT_LEDGER_ACTOR_ID,
-  accountSetId = "default"
+  accountSetId = "default",
+  dimensionType: string | null = null,
+  dimensionCode: string | null = null
 ): Promise<DetailLedgerResponse> {
+  const dimensionQuery =
+    dimensionType && dimensionCode
+      ? `&dimension_type=${encodeURIComponent(dimensionType)}&dimension_code=${encodeURIComponent(dimensionCode)}`
+      : "";
   return requestLedgerJson<DetailLedgerResponse>(
     withAccountSet(
-      `/api/v1/ledger/detail?period=${encodeURIComponent(period)}&account_code=${encodeURIComponent(accountCode)}`,
+      `/api/v1/ledger/detail?period=${encodeURIComponent(period)}&account_code=${encodeURIComponent(accountCode)}${dimensionQuery}`,
       accountSetId
     ),
     apiBase,
@@ -482,6 +491,31 @@ export function saveExchangeRate(
   actorId = DEFAULT_FINANCE_ACTOR_ID
 ): Promise<ExchangeRateRecord> {
   return mutateLedgerJson<ExchangeRateRecord>("/api/v1/accounting/exchange-rates", request, apiBase, fetcher, actorId);
+}
+
+export function fetchAuxiliaryDimensions(
+  accountSetId = "default",
+  dimensionType: string | null = null,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AuxiliaryDimensionListResponse> {
+  const typeQuery = dimensionType ? `&dimension_type=${encodeURIComponent(dimensionType)}` : "";
+  return requestLedgerJson<AuxiliaryDimensionListResponse>(
+    `/api/v1/accounting/dimensions?account_set_id=${encodeURIComponent(accountSetId)}${typeQuery}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function saveAuxiliaryDimension(
+  request: AuxiliaryDimensionCreateRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AuxiliaryDimensionRecord> {
+  return mutateLedgerJson<AuxiliaryDimensionRecord>("/api/v1/accounting/dimensions", request, apiBase, fetcher, actorId);
 }
 
 export function fetchAccountSets(

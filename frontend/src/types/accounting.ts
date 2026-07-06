@@ -50,6 +50,48 @@ export interface ExchangeRateListResponse {
   rates: ExchangeRateRecord[];
 }
 
+export type AuxiliaryDimensionType =
+  | "customer"
+  | "supplier"
+  | "employee"
+  | "department"
+  | "project"
+  | "asset"
+  | "platform"
+  | "sku";
+
+export interface AuxiliaryDimensionRecord {
+  id: string;
+  account_set_id: string;
+  dimension_type: AuxiliaryDimensionType | string;
+  dimension_code: string;
+  dimension_name: string;
+  is_active: boolean;
+  updated_at: string;
+}
+
+export interface AuxiliaryDimensionCreateRequest {
+  account_set_id: string;
+  dimension_type: AuxiliaryDimensionType | string;
+  dimension_code: string;
+  dimension_name: string;
+  is_active?: boolean;
+}
+
+export interface AuxiliaryDimensionListResponse {
+  account_set_id: string;
+  dimension_type: string | null;
+  supported_dimension_types: string[];
+  total: number;
+  dimensions: AuxiliaryDimensionRecord[];
+}
+
+export interface JournalLineDimension {
+  dimension_type: AuxiliaryDimensionType | string;
+  dimension_code: string;
+  dimension_name: string;
+}
+
 export interface JournalLineRecord {
   id: string;
   journal_entry_id: string;
@@ -62,6 +104,7 @@ export interface JournalLineRecord {
   exchange_rate: MoneyValue;
   base_amount: MoneyValue;
   description: string;
+  dimensions: JournalLineDimension[];
 }
 
 export interface JournalEntryRecord {
