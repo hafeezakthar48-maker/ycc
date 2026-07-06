@@ -283,6 +283,25 @@ def list_journal_entries(account_set_id: str = "default", period: str | None = N
     return JournalEntryListResponse(account_set_id=account_set_id, period=period, total=len(entries), entries=entries)
 
 
+def list_journal_entries_by_dimension(
+    account_set_id: str,
+    period: str,
+    dimension_type: str,
+    dimension_code: str,
+) -> JournalEntryListResponse:
+    entries = list_journal_entries(account_set_id, period).entries
+    matched = [
+        entry
+        for entry in entries
+        if any(
+            dimension.dimension_type == dimension_type and dimension.dimension_code == dimension_code
+            for line in entry.lines
+            for dimension in line.dimensions
+        )
+    ]
+    return JournalEntryListResponse(account_set_id=account_set_id, period=period, total=len(matched), entries=matched)
+
+
 def get_journal_entry(entry_id: str) -> JournalEntryRecord:
     with _connection() as connection:
         row = connection.execute("SELECT payload_json FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()

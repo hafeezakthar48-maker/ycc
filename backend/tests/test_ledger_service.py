@@ -2,9 +2,9 @@ from decimal import Decimal
 
 import pytest
 
-from app.models.accounting import ExchangeRateCreate, JournalEntryCreate, JournalLineCreate
+from app.models.accounting import AuxiliaryDimensionCreate, ExchangeRateCreate, JournalEntryCreate, JournalLineCreate, JournalLineDimension
 from app.models.voucher_center import VoucherCenterCreateRequest, VoucherCenterLine
-from app.services.accounting_service import post_journal_entry, reset_accounting_store, upsert_exchange_rate
+from app.services.accounting_service import post_journal_entry, reset_accounting_store, upsert_auxiliary_dimension, upsert_exchange_rate
 from app.services.ledger_service import build_account_balance_table, build_detail_ledger, build_general_ledger
 from app.services.voucher_center_service import create_voucher, reset_voucher_store, review_voucher
 
@@ -193,3 +193,53 @@ def test_detail_ledger_shows_original_currency_and_base_amount():
     assert detail.lines[0].original_amount == Decimal("100.00")
     assert detail.lines[0].exchange_rate == Decimal("7.120000")
     assert detail.lines[0].debit_amount == Decimal("712.00")
+
+
+def test_detail_ledger_filters_by_auxiliary_dimension():
+    reset_accounting_store()
+    upsert_auxiliary_dimension(
+        AuxiliaryDimensionCreate(
+            account_set_id="default",
+            dimension_type="customer",
+            dimension_code="CUST-SH-001",
+            dimension_name="上海客户",
+        )
+    )
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2026-06-18",
+            source_type="manual_adjustment",
+            source_id="ledger-dimension-1",
+            description="上海客户收入",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    original_amount=Decimal("100.00"),
+                    base_amount=Decimal("100.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("100.00"),
+                    base_amount=Decimal("100.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+            ],
+        )
+    )
+
+    detail = build_detail_ledger(
+        "2026-06",
+        "1122",
+        "default",
+        dimension_type="customer",
+        dimension_code="CUST-SH-001",
+    )
+
+    assert detail.lines[0].dimensions[0].dimension_name == "上海客户"
+    assert detail.debit_total == Decimal("100.00")

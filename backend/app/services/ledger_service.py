@@ -61,14 +61,20 @@ def build_general_ledger(period: str, account_set_id: str = "default") -> Genera
     )
 
 
-def build_detail_ledger(period: str, account_code: str, account_set_id: str = "default") -> DetailLedgerResponse:
+def build_detail_ledger(
+    period: str,
+    account_code: str,
+    account_set_id: str = "default",
+    dimension_type: str | None = None,
+    dimension_code: str | None = None,
+) -> DetailLedgerResponse:
     _validate_period(period)
     formal_entries = list_journal_entries(account_set_id, period).entries
     if formal_entries:
         lines = [
             detail_line
             for entry in formal_entries
-            for detail_line in _journal_detail_lines(entry)
+            for detail_line in _journal_detail_lines(entry, dimension_type, dimension_code)
             if detail_line.account_code == account_code
         ]
         lines.sort(key=lambda line: (line.voucher_date, line.voucher_number, line.account_code))
@@ -223,9 +229,15 @@ def _voucher_detail_lines(voucher: VoucherCenterRecord) -> list[LedgerDetailLine
     return detail_lines
 
 
-def _journal_detail_lines(entry) -> list[LedgerDetailLine]:
+def _journal_detail_lines(
+    entry,
+    dimension_type: str | None = None,
+    dimension_code: str | None = None,
+) -> list[LedgerDetailLine]:
     detail_lines = []
     for line in entry.lines:
+        if not _line_matches_dimension(line, dimension_type, dimension_code):
+            continue
         debit_amount, credit_amount = _journal_line_debit_credit(line.direction, line.base_amount)
         detail_lines.append(
             LedgerDetailLine(
@@ -241,12 +253,29 @@ def _journal_detail_lines(entry) -> list[LedgerDetailLine]:
                 currency=line.currency,
                 original_amount=line.original_amount,
                 exchange_rate=line.exchange_rate,
+                dimensions=[
+                    {
+                        "dimension_type": dimension.dimension_type,
+                        "dimension_code": dimension.dimension_code,
+                        "dimension_name": dimension.dimension_name,
+                    }
+                    for dimension in line.dimensions
+                ],
                 debit_amount=debit_amount,
                 credit_amount=credit_amount,
                 status=entry.status,
             )
         )
     return detail_lines
+
+
+def _line_matches_dimension(line, dimension_type: str | None, dimension_code: str | None) -> bool:
+    if not dimension_type and not dimension_code:
+        return True
+    return any(
+        dimension.dimension_type == dimension_type and dimension.dimension_code == dimension_code
+        for dimension in line.dimensions
+    )
 
 
 def _line_debit_credit(direction: str, amount: Decimal) -> tuple[Decimal, Decimal]:

@@ -127,3 +127,77 @@ def test_post_journal_entry_rejects_missing_dimension_master_data():
 
     assert exc_info.value.status_code == 422
     assert "辅助核算维度不存在" in exc_info.value.detail
+
+
+def test_list_journal_entries_by_dimension_returns_matching_entries_only():
+    from app.services.accounting_service import list_journal_entries_by_dimension
+
+    _seed_customer()
+    upsert_auxiliary_dimension(
+        AuxiliaryDimensionCreate(
+            account_set_id="default",
+            dimension_type="customer",
+            dimension_code="CUST-BJ-002",
+            dimension_name="北京客户",
+        )
+    )
+
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2026-06-18",
+            source_type="manual_adjustment",
+            source_id="dimension-filter-1",
+            description="上海客户收入",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    original_amount=Decimal("100.00"),
+                    base_amount=Decimal("100.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("100.00"),
+                    base_amount=Decimal("100.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+            ],
+        )
+    )
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2026-06-19",
+            source_type="manual_adjustment",
+            source_id="dimension-filter-2",
+            description="北京客户收入",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    original_amount=Decimal("200.00"),
+                    base_amount=Decimal("200.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-BJ-002")],
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("200.00"),
+                    base_amount=Decimal("200.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-BJ-002")],
+                ),
+            ],
+        )
+    )
+
+    result = list_journal_entries_by_dimension("default", "2026-06", "customer", "CUST-SH-001")
+
+    assert result.total == 1
+    assert result.entries[0].source_id == "dimension-filter-1"

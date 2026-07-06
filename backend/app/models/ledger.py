@@ -16,6 +16,14 @@ class LedgerAccountSummary(BaseModel):
     entry_count: int = Field(ge=0)
 
 
+class LedgerLineDimension(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dimension_type: str
+    dimension_code: str
+    dimension_name: str
+
+
 class LedgerDetailLine(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -31,6 +39,7 @@ class LedgerDetailLine(BaseModel):
     currency: str = "CNY"
     original_amount: Decimal = Decimal("0.00")
     exchange_rate: Decimal = Decimal("1.000000")
+    dimensions: list[LedgerLineDimension] = Field(default_factory=list)
     debit_amount: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
     credit_amount: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
     status: str
