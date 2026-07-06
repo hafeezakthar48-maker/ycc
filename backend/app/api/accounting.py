@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Header, HTTPException, Query
 
-from app.models.accounting import ExchangeRateCreate, JournalEntryCreate
+from app.models.accounting import AuxiliaryDimensionCreate, ExchangeRateCreate, JournalEntryCreate
 from app.models.system_admin import AuditLogCreateRequest
 from app.services.accounting_service import (
     get_chart_of_accounts,
     get_journal_entry,
+    list_auxiliary_dimensions,
     list_currencies,
     list_exchange_rates,
     list_journal_entries,
     post_journal_entry,
+    upsert_auxiliary_dimension,
     upsert_exchange_rate,
 )
 from app.services.system_admin_service import authorize, record_audit_log
@@ -35,6 +37,60 @@ def get_accounts(
         "accounting.account.read",
         f"accounts:{account_set_id}",
         {"account_set_id": account_set_id, "account_count": len(response.accounts)},
+    )
+    return response
+
+
+@router.get("/dimensions")
+def get_dimensions(
+    account_set_id: str = Query(default="default", min_length=1, max_length=64),
+    dimension_type: str | None = Query(default=None, max_length=40),
+    x_actor_id: str = Header(default="system"),
+):
+    target_id = f"dimensions:{account_set_id}:{dimension_type or 'all'}"
+    metadata = {"account_set_id": account_set_id, "dimension_type": dimension_type}
+    _require_accounting_permission(
+        x_actor_id,
+        "accounting.dimension.read",
+        "accounting.dimension.read",
+        target_id,
+        metadata,
+    )
+    response = list_auxiliary_dimensions(account_set_id, dimension_type)
+    _record_accounting_audit(
+        x_actor_id,
+        "accounting.dimension.read",
+        target_id,
+        {**metadata, "dimension_count": response.total},
+    )
+    return response
+
+
+@router.post("/dimensions")
+def save_dimension(request: AuxiliaryDimensionCreate, x_actor_id: str = Header(default="system")):
+    target_id = f"dimension:{request.account_set_id}:{request.dimension_type}:{request.dimension_code}"
+    metadata = {
+        "account_set_id": request.account_set_id,
+        "dimension_type": request.dimension_type,
+        "dimension_code": request.dimension_code,
+    }
+    _require_accounting_permission(
+        x_actor_id,
+        "accounting.dimension.write",
+        "accounting.dimension.write",
+        target_id,
+        metadata,
+    )
+    response = upsert_auxiliary_dimension(request)
+    _record_accounting_audit(
+        x_actor_id,
+        "accounting.dimension.write",
+        response.id,
+        {
+            "account_set_id": response.account_set_id,
+            "dimension_type": response.dimension_type,
+            "dimension_code": response.dimension_code,
+        },
     )
     return response
 

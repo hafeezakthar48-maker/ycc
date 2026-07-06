@@ -155,6 +155,8 @@ def get_detail_ledger(
     period: str = PERIOD_QUERY,
     account_code: str = Query(min_length=1, max_length=32),
     account_set_id: str = Query(default="default", min_length=1, max_length=64),
+    dimension_type: str | None = Query(default=None, max_length=40),
+    dimension_code: str | None = Query(default=None, max_length=64),
     x_actor_id: str = Header(default="system"),
 ):
     event = "ledger.detail.read"
@@ -163,9 +165,21 @@ def get_detail_ledger(
         actor_id=x_actor_id,
         event=event,
         target_id=target_id,
-        metadata={"period": period, "account_set_id": account_set_id, "account_code": account_code},
+        metadata={
+            "period": period,
+            "account_set_id": account_set_id,
+            "account_code": account_code,
+            "dimension_type": dimension_type,
+            "dimension_code": dimension_code,
+        },
     )
-    ledger = build_detail_ledger(period, account_code, account_set_id)
+    ledger = build_detail_ledger(
+        period,
+        account_code,
+        account_set_id,
+        dimension_type=dimension_type,
+        dimension_code=dimension_code,
+    )
     _record_ledger_audit(
         actor_id=x_actor_id,
         event=event,
@@ -177,6 +191,8 @@ def get_detail_ledger(
             "account_name": ledger.account_name,
             "line_count": ledger.line_count,
             "balance_direction": ledger.balance_direction,
+            "dimension_type": dimension_type,
+            "dimension_code": dimension_code,
         },
     )
     return ledger

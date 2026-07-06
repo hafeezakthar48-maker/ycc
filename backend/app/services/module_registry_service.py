@@ -37,6 +37,8 @@ MODULE_REGISTRY: tuple[OsModule, ...] = (
             "accounting.currency.read",
             "accounting.exchange_rate.read",
             "accounting.exchange_rate.write",
+            "accounting.dimension.read",
+            "accounting.dimension.write",
             "accounting.entry.read",
             "accounting.entry.post",
             "accounting.entry.reverse",
