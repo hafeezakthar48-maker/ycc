@@ -47,6 +47,14 @@ import type {
   GeneralLedgerResponse
 } from "../types/ledger";
 import type { PayrollCalculateRequest, PayrollCalculationResponse } from "../types/payroll";
+import type {
+  PeriodCloseCheckRequest,
+  PeriodCloseCheckResponse,
+  PeriodCloseGenerateRequest,
+  PeriodCloseGenerateResponse,
+  PeriodClosePeriodRequest,
+  PeriodClosePeriodResponse
+} from "../types/periodClose";
 import type { PolicySearchResponse } from "../types/policy";
 import type {
   VoucherCenterCreateRequest,
@@ -179,6 +187,27 @@ async function mutateFinancialStatementJson<T>(
   });
   if (!response.ok) {
     throw new Error(`财务报表 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function mutatePeriodCloseJson<T>(
+  path: string,
+  body: unknown,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Actor-Id": actorId
+    },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    throw new Error(`期间结账 API 请求失败：${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -694,6 +723,66 @@ export function generateFinancialStatements(
 ): Promise<FinancialStatementBundle> {
   return mutateFinancialStatementJson<FinancialStatementBundle>(
     "/api/v1/financial-statements/generate",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function runPeriodCloseChecks(
+  request: PeriodCloseCheckRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<PeriodCloseCheckResponse> {
+  return mutatePeriodCloseJson<PeriodCloseCheckResponse>(
+    "/api/v1/period-close/checks",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function generatePeriodCloseActions(
+  request: PeriodCloseGenerateRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<PeriodCloseGenerateResponse> {
+  return mutatePeriodCloseJson<PeriodCloseGenerateResponse>(
+    "/api/v1/period-close/actions/generate",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function closePeriod(
+  request: PeriodClosePeriodRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<PeriodClosePeriodResponse> {
+  return mutatePeriodCloseJson<PeriodClosePeriodResponse>(
+    "/api/v1/period-close/close",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function reopenPeriod(
+  request: PeriodClosePeriodRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<PeriodClosePeriodResponse> {
+  return mutatePeriodCloseJson<PeriodClosePeriodResponse>(
+    "/api/v1/period-close/reopen",
     request,
     apiBase,
     fetcher,

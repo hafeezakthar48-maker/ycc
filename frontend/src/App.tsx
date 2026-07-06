@@ -62,6 +62,17 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!homeDashboard || !overview || !report || !window.location.hash) {
+      return;
+    }
+    const scrollToHash = () => {
+      document.querySelector(window.location.hash)?.scrollIntoView({ block: "start" });
+    };
+    window.requestAnimationFrame(scrollToHash);
+    window.setTimeout(scrollToHash, 350);
+  }, [homeDashboard, overview, report]);
+
   if (error) {
     return (
       <main className="app-state">

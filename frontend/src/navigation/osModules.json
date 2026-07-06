@@ -19,6 +19,7 @@
       { "label": "账簿视图", "anchor": "ledger-panel" },
       { "label": "固定资产", "anchor": "fixed-asset-panel" },
       { "label": "工资管理", "anchor": "payroll-panel" },
+      { "label": "期间结账", "anchor": "period-close-panel" },
       { "label": "财务报表", "anchor": "financial-statements-panel" },
       { "label": "凭证草稿", "anchor": "voucher-draft" },
       { "label": "自动审核", "anchor": "audit-review" },
