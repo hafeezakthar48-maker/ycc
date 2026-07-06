@@ -3,6 +3,7 @@ from decimal import Decimal
 from app.services.statement_mapping_service import (
     calculate_statement_lines,
     get_default_statement_mapping_set,
+    infer_cash_flow_amounts,
     list_statement_mapping_rules,
     reset_statement_mapping_store,
 )
@@ -57,3 +58,42 @@ def test_calculate_balance_sheet_lines_from_account_balances():
     assert amount_by_code["BS-AP"] == Decimal("400.00")
     assert amount_by_code["BS-TOTAL-ASSETS"] == Decimal("2000.00")
     assert result.trace_items[0].line_code == "BS-CASH"
+
+
+def test_infer_cash_flow_amounts_from_cash_and_counterpart_accounts():
+    journal_lines = [
+        {
+            "entry_id": "je_1",
+            "account_code": "1002",
+            "direction": "debit",
+            "amount": Decimal("500.00"),
+            "cash_flow_item_code": "CFO-SALES-CASH",
+        },
+        {
+            "entry_id": "je_1",
+            "account_code": "6001",
+            "direction": "credit",
+            "amount": Decimal("500.00"),
+            "cash_flow_item_code": "",
+        },
+        {
+            "entry_id": "je_2",
+            "account_code": "1002",
+            "direction": "credit",
+            "amount": Decimal("120.00"),
+            "cash_flow_item_code": "",
+        },
+        {
+            "entry_id": "je_2",
+            "account_code": "2211",
+            "direction": "debit",
+            "amount": Decimal("120.00"),
+            "cash_flow_item_code": "",
+        },
+    ]
+
+    amounts, warnings = infer_cash_flow_amounts(journal_lines)
+
+    assert amounts["CFO-SALES-CASH"] == Decimal("500.00")
+    assert amounts["CFO-PAYROLL-CASH"] == Decimal("-120.00")
+    assert warnings == ["je_2 使用对方科目推断现金流项目 CFO-PAYROLL-CASH"]

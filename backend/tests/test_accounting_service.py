@@ -8,6 +8,7 @@ from app.services.accounting_service import (
     get_chart_of_accounts,
     get_journal_entry,
     get_profit_loss_balances,
+    list_period_journal_lines_for_reporting,
     list_journal_entries,
     post_journal_entry,
     reset_accounting_store,
@@ -94,6 +95,41 @@ def test_reverse_journal_entry_creates_reversal_without_deleting_original():
     assert reversal.lines[0].direction == "credit"
     assert reversal.lines[1].direction == "debit"
     assert list_journal_entries("default", "2026-06").total == 2
+
+
+def test_cash_flow_item_code_is_persisted_and_exposed_for_reporting():
+    entry = post_journal_entry(
+        JournalEntryCreate(
+            entry_date="2026-06-20",
+            source_type="manual_test",
+            source_id="cash-flow-1",
+            description="销售收款",
+            lines=[
+                JournalLineCreate(
+                    account_code="1002",
+                    account_name="银行存款",
+                    direction="debit",
+                    original_amount=Decimal("500.00"),
+                    base_amount=Decimal("500.00"),
+                    cash_flow_item_code="cfo-sales-cash",
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("500.00"),
+                    base_amount=Decimal("500.00"),
+                ),
+            ],
+        )
+    )
+
+    loaded = get_journal_entry(entry.id)
+    reporting_lines = list_period_journal_lines_for_reporting("default", "2026-06")
+
+    assert loaded.lines[0].cash_flow_item_code == "CFO-SALES-CASH"
+    assert loaded.lines[1].cash_flow_item_code == ""
+    assert reporting_lines[0]["cash_flow_item_code"] == "CFO-SALES-CASH"
 
 
 def test_get_profit_loss_balances_returns_period_revenue_and_expense_balances():

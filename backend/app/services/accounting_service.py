@@ -26,6 +26,7 @@ from app.models.accounting import (
     JournalLineCreate,
     JournalLineDimensionRecord,
     JournalLineRecord,
+    normalize_cash_flow_item_code,
 )
 from app.services.accounting_period_service import is_accounting_period_closed, validate_account_set
 
@@ -404,6 +405,26 @@ def get_profit_loss_balances(account_set_id: str, period: str) -> list[dict]:
     return rows
 
 
+def list_period_journal_lines_for_reporting(account_set_id: str, period: str) -> list[dict]:
+    validate_account_set(account_set_id)
+    rows: list[dict] = []
+    for entry in list_journal_entries(account_set_id, period).entries:
+        if entry.status != "posted":
+            continue
+        for line in entry.lines:
+            rows.append(
+                {
+                    "entry_id": entry.id,
+                    "account_code": line.account_code,
+                    "account_name": line.account_name,
+                    "direction": line.direction,
+                    "amount": line.base_amount,
+                    "cash_flow_item_code": normalize_cash_flow_item_code(line.cash_flow_item_code),
+                }
+            )
+    return rows
+
+
 def get_journal_entry(entry_id: str) -> JournalEntryRecord:
     with _connection() as connection:
         row = connection.execute("SELECT payload_json FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
@@ -423,6 +444,7 @@ def _reverse_line(line: JournalLineRecord) -> JournalLineCreate:
         base_amount=line.base_amount,
         description=line.description,
         dimensions=line.dimensions,
+        cash_flow_item_code=line.cash_flow_item_code,
     )
 
 

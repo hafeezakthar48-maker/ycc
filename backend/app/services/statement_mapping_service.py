@@ -117,6 +117,32 @@ def calculate_statement_lines(
     )
 
 
+def infer_cash_flow_amounts(journal_lines: list[dict]) -> tuple[dict[str, Decimal], list[str]]:
+    get_default_statement_mapping_set("default")
+    amounts: dict[str, Decimal] = {}
+    warnings: list[str] = []
+    lines_by_entry: dict[str, list[dict]] = {}
+    for line in journal_lines:
+        lines_by_entry.setdefault(str(line["entry_id"]), []).append(line)
+
+    for entry_id, lines in lines_by_entry.items():
+        explicit_items = [line for line in lines if str(line.get("cash_flow_item_code", "")).strip()]
+        if explicit_items:
+            for line in explicit_items:
+                code = str(line["cash_flow_item_code"]).strip().upper()
+                amount = _cash_signed_amount(line, code)
+                amounts[code] = _q(amounts.get(code, ZERO) + amount)
+            continue
+
+        inferred_code = _infer_cash_flow_code(lines)
+        if inferred_code:
+            amount = sum(_cash_signed_amount(line, inferred_code) for line in lines if _is_cash_line(line))
+            amounts[inferred_code] = _q(amounts.get(inferred_code, ZERO) + amount)
+            warnings.append(f"{entry_id} 使用对方科目推断现金流项目 {inferred_code}")
+
+    return amounts, warnings
+
+
 def _rule(
     mapping_set_id: str,
     statement_type: str,
@@ -196,6 +222,38 @@ def _validate_statement(statement_type: str, values: dict[str, Decimal]) -> list
 
 def _q(value: Decimal) -> Decimal:
     return value.quantize(TWOPLACES)
+
+
+def _is_cash_line(line: dict) -> bool:
+    account_code = str(line["account_code"])
+    return account_code.startswith("1001") or account_code.startswith("1002")
+
+
+def _cash_signed_amount(line: dict, item_code: str) -> Decimal:
+    amount = Decimal(str(line["amount"]))
+    direction = str(line["direction"]).lower()
+    item = _CASH_FLOW_ITEMS.get(item_code)
+    if item and item.direction == "outflow":
+        return -amount
+    return amount if direction == "debit" else -amount
+
+
+def _infer_cash_flow_code(lines: list[dict]) -> str:
+    cash_lines = [line for line in lines if _is_cash_line(line)]
+    counterpart_lines = [line for line in lines if not _is_cash_line(line)]
+    if not cash_lines or not counterpart_lines:
+        return ""
+    for item in _CASH_FLOW_ITEMS.values():
+        if any(_matches_prefix(line, item.cash_account_prefixes) for line in cash_lines) and any(
+            _matches_prefix(line, item.counterpart_account_prefixes) for line in counterpart_lines
+        ):
+            return item.item_code
+    return ""
+
+
+def _matches_prefix(line: dict, prefixes: list[str]) -> bool:
+    account_code = str(line["account_code"])
+    return any(account_code.startswith(prefix) for prefix in prefixes)
 
 
 def _default_rules(mapping_set_id: str) -> list[StatementMappingRule]:

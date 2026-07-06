@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 AccountType = Literal["asset", "liability", "equity", "revenue", "cost", "expense"]
@@ -125,6 +125,18 @@ class JournalLineCreate(BaseModel):
     base_amount: Decimal = Field(gt=0, max_digits=16, decimal_places=2)
     description: str = Field(default="", max_length=200)
     dimensions: list[JournalLineDimension] = Field(default_factory=list, max_length=8)
+    cash_flow_item_code: str | None = Field(default="", max_length=64)
+
+    @field_validator("cash_flow_item_code", mode="before")
+    @classmethod
+    def normalize_cash_flow_item_code_field(cls, value: str | None) -> str:
+        return normalize_cash_flow_item_code(value)
+
+
+def normalize_cash_flow_item_code(value: str | None) -> str:
+    if value is None:
+        return ""
+    return value.strip().upper()
 
 
 class JournalEntryCreate(BaseModel):
