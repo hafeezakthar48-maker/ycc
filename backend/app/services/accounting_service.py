@@ -12,6 +12,11 @@ from fastapi import HTTPException
 from app.models.accounting import (
     AccountItem,
     AccountListResponse,
+    CurrencyItem,
+    CurrencyListResponse,
+    ExchangeRateCreate,
+    ExchangeRateListResponse,
+    ExchangeRateRecord,
     JournalEntryCreate,
     JournalEntryListResponse,
     JournalEntryRecord,
@@ -45,17 +50,100 @@ _BASE_ACCOUNTS: tuple[AccountItem, ...] = (
     AccountItem(account_set_id="default", account_code="6603", account_name="财务费用", account_type="expense", normal_balance="debit"),
 )
 
+_SUPPORTED_CURRENCIES: tuple[CurrencyItem, ...] = (
+    CurrencyItem(currency_code="CNY", currency_name="人民币", decimal_places=2),
+    CurrencyItem(currency_code="USD", currency_name="美元", decimal_places=2),
+    CurrencyItem(currency_code="EUR", currency_name="欧元", decimal_places=2),
+    CurrencyItem(currency_code="HKD", currency_name="港币", decimal_places=2),
+)
+
 
 def reset_accounting_store() -> None:
     with _connection() as connection:
         connection.execute("DELETE FROM journal_entries")
         connection.execute("DELETE FROM journal_sequences")
+        connection.execute("DELETE FROM exchange_rates")
 
 
 def get_chart_of_accounts(account_set_id: str = "default") -> AccountListResponse:
     validate_account_set(account_set_id)
     accounts = [account.model_copy(update={"account_set_id": account_set_id}) for account in _BASE_ACCOUNTS]
     return AccountListResponse(account_set_id=account_set_id, accounts=accounts)
+
+
+def list_currencies() -> CurrencyListResponse:
+    return CurrencyListResponse(currencies=list(_SUPPORTED_CURRENCIES))
+
+
+def upsert_exchange_rate(request: ExchangeRateCreate) -> ExchangeRateRecord:
+    validate_account_set(request.account_set_id)
+    _validate_currency(request.source_currency)
+    _validate_currency(request.target_currency)
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    rate_id = f"{request.account_set_id}:{request.rate_date}:{request.source_currency}:{request.target_currency}"
+    record = ExchangeRateRecord(id=rate_id, updated_at=now, **request.model_dump())
+    with _connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO exchange_rates (
+                id, account_set_id, rate_date, source_currency, target_currency, payload_json, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+                payload_json = excluded.payload_json,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                record.id,
+                record.account_set_id,
+                record.rate_date,
+                record.source_currency,
+                record.target_currency,
+                record.model_dump_json(),
+            ),
+        )
+    return record
+
+
+def get_exchange_rate(
+    account_set_id: str,
+    rate_date: str,
+    source_currency: str,
+    target_currency: str = "CNY",
+) -> ExchangeRateRecord:
+    validate_account_set(account_set_id)
+    _validate_currency(source_currency)
+    _validate_currency(target_currency)
+    if source_currency == target_currency:
+        return ExchangeRateRecord(
+            id=f"{account_set_id}:{rate_date}:{source_currency}:{target_currency}",
+            account_set_id=account_set_id,
+            rate_date=rate_date,
+            source_currency=source_currency,
+            target_currency=target_currency,
+            rate=Decimal("1.000000"),
+            source="identity",
+            updated_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
+    rate_id = f"{account_set_id}:{rate_date}:{source_currency}:{target_currency}"
+    with _connection() as connection:
+        row = connection.execute("SELECT payload_json FROM exchange_rates WHERE id = ?", (rate_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"缺少汇率：{source_currency}->{target_currency} {rate_date}")
+    return ExchangeRateRecord.model_validate_json(row["payload_json"])
+
+
+def list_exchange_rates(account_set_id: str = "default") -> ExchangeRateListResponse:
+    validate_account_set(account_set_id)
+    with _connection() as connection:
+        rows = connection.execute(
+            "SELECT payload_json FROM exchange_rates WHERE account_set_id = ? ORDER BY rate_date DESC, source_currency",
+            (account_set_id,),
+        ).fetchall()
+    return ExchangeRateListResponse(
+        account_set_id=account_set_id,
+        rates=[ExchangeRateRecord.model_validate_json(row["payload_json"]) for row in rows],
+    )
 
 
 def post_journal_entry(request: JournalEntryCreate) -> JournalEntryRecord:
@@ -153,6 +241,12 @@ def _validate_accounts(account_set_id: str, lines: list[JournalLineCreate]) -> N
     for line in lines:
         if line.account_code not in active_codes:
             raise HTTPException(status_code=422, detail=f"科目不存在或未启用：{line.account_code}")
+
+
+def _validate_currency(currency_code: str) -> None:
+    active_codes = {currency.currency_code for currency in _SUPPORTED_CURRENCIES if currency.is_active}
+    if currency_code not in active_codes:
+        raise HTTPException(status_code=422, detail=f"不支持的币种：{currency_code}")
 
 
 def _validate_balance(lines: list[JournalLineCreate]) -> None:
@@ -284,3 +378,19 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
     )
     connection.execute("CREATE INDEX IF NOT EXISTS idx_journal_entries_period ON journal_entries (account_set_id, period)")
     connection.execute("CREATE INDEX IF NOT EXISTS idx_journal_entries_source ON journal_entries (account_set_id, source_type, source_id)")
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS exchange_rates (
+            id TEXT PRIMARY KEY,
+            account_set_id TEXT NOT NULL,
+            rate_date TEXT NOT NULL,
+            source_currency TEXT NOT NULL,
+            target_currency TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_exchange_rates_account_set ON exchange_rates (account_set_id, rate_date)"
+    )

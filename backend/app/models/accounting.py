@@ -29,6 +29,44 @@ class AccountListResponse(BaseModel):
     accounts: list[AccountItem]
 
 
+class CurrencyItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    currency_code: str = Field(min_length=3, max_length=3)
+    currency_name: str
+    decimal_places: int = Field(ge=0, le=6)
+    is_active: bool = True
+
+
+class CurrencyListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    currencies: list[CurrencyItem]
+
+
+class ExchangeRateCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    rate_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    source_currency: str = Field(min_length=3, max_length=3)
+    target_currency: str = Field(default="CNY", min_length=3, max_length=3)
+    rate: Decimal = Field(gt=0, max_digits=18, decimal_places=6)
+    source: str = Field(default="manual", min_length=1, max_length=40)
+
+
+class ExchangeRateRecord(ExchangeRateCreate):
+    id: str
+    updated_at: str
+
+
+class ExchangeRateListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    rates: list[ExchangeRateRecord]
+
+
 class JournalLineCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
