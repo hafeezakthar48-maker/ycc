@@ -14,9 +14,15 @@ from app.models.financial_statement import (
     StatementLineItem,
 )
 from app.models.ledger import LedgerAccountSummary
+from app.models.statement_mapping import StatementLineTrace, StatementValidationItem
 from app.services.analysis_service import COMPANY_NAME
-from app.services.accounting_service import list_journal_entries
+from app.services.accounting_service import list_journal_entries, list_period_journal_lines_for_reporting
 from app.services.ledger_service import build_general_ledger
+from app.services.statement_mapping_service import (
+    calculate_statement_lines,
+    get_default_statement_mapping_set,
+    infer_cash_flow_amounts,
+)
 
 
 TWOPLACES = Decimal("0.01")
@@ -26,14 +32,21 @@ ZERO = Decimal("0.00")
 def generate_financial_statements(
     request: FinancialStatementGenerateRequest,
 ) -> FinancialStatementBundle:
+    mapping_set_id = _mapping_set_id(request)
     ledger = build_general_ledger(request.period, request.account_set_id)
     if ledger.accounts:
         source = "formal_journal_entries" if ledger.source == "formal_journal_entries" else "reviewed_vouchers"
-        return _bundle_from_ledger(request, ledger.voucher_count, ledger.accounts, source)
-    return _bundle_from_sample(request)
+        return _bundle_from_mapped_ledger(request, mapping_set_id, ledger.voucher_count, ledger.accounts, source)
+    return _bundle_from_sample(request, mapping_set_id)
 
 
-def _bundle_from_sample(request: FinancialStatementGenerateRequest) -> FinancialStatementBundle:
+def _mapping_set_id(request: FinancialStatementGenerateRequest) -> str:
+    if request.mapping_set_id:
+        return request.mapping_set_id
+    return get_default_statement_mapping_set(request.account_set_id).mapping_set_id
+
+
+def _bundle_from_sample(request: FinancialStatementGenerateRequest, mapping_set_id: str) -> FinancialStatementBundle:
     current = _find_record(request.period)
     previous = _previous_record(request.period)
 
@@ -126,92 +139,68 @@ def _bundle_from_sample(request: FinancialStatementGenerateRequest) -> Financial
         income_statement=income_statement,
         cash_flow_statement=cash_flow_statement,
         equity_statement=equity_statement,
+        mapping_set_id=mapping_set_id,
+        trace_items=[
+            StatementLineTrace(
+                line_code="SAMPLE",
+                rule_id="sample_finance_data",
+                source_type="formula",
+                formula="SAMPLE_FINANCE_DATA",
+                amount=Decimal("0.00"),
+                warnings=["当前账套无正式账簿数据，使用样例经营数据生成演示报表"],
+            )
+        ],
+        validation_items=[
+            StatementValidationItem(
+                validation_code="balance_sheet_identity",
+                validation_name="资产等于负债和所有者权益",
+                status="passed" if balance_sheet.balanced else "failed",
+                message="资产负债表平衡" if balance_sheet.balanced else "资产负债表不平衡",
+                expected_amount=balance_sheet.total_assets,
+                actual_amount=balance_sheet.total_liabilities_and_equity,
+            ),
+            StatementValidationItem(
+                validation_code="sample_data_fallback",
+                validation_name="样例数据回退",
+                status="warning",
+                message="当前账套无正式账簿数据，报表来自样例经营数据",
+            ),
+        ],
     )
 
 
-def _bundle_from_ledger(
+def _bundle_from_mapped_ledger(
     request: FinancialStatementGenerateRequest,
+    mapping_set_id: str,
     reviewed_voucher_count: int,
     accounts: list[LedgerAccountSummary],
     source: str = "reviewed_vouchers",
 ) -> FinancialStatementBundle:
-    cash = _sum_accounts(accounts, ("1001", "1002"), "asset")
-    accounts_receivable = _sum_accounts(accounts, ("1122",), "asset")
-    inventory = _sum_accounts(accounts, ("1405",), "asset")
-    fixed_assets = _sum_accounts(accounts, ("1601",), "asset")
-    total_assets = cash + accounts_receivable + inventory + fixed_assets
-    accounts_payable = _sum_accounts(accounts, ("2202",), "credit")
-    short_term_loans = _sum_accounts(accounts, ("2001",), "credit")
-    tax_payable = _sum_accounts(accounts, ("2221",), "credit")
-    explicit_equity = _sum_accounts(accounts, ("4001",), "credit")
-    total_liabilities = accounts_payable + short_term_loans + tax_payable
-    revenue = _sum_accounts(accounts, ("6001", "6051"), "credit")
-    cost = _sum_accounts(accounts, ("6401",), "asset")
-    expense = _sum_accounts(accounts, ("6601", "6602", "6603"), "asset")
-    total_profit = revenue - cost - expense
-    net_profit = total_profit
-    total_equity = explicit_equity if explicit_equity > ZERO else total_assets - total_liabilities
-    total_liabilities_and_equity = total_liabilities + total_equity
+    account_rows = [_ledger_account_to_row(account) for account in accounts]
+    journal_lines = list_period_journal_lines_for_reporting(request.account_set_id, request.period)
+    cash_flow_amounts, cash_warnings = infer_cash_flow_amounts(journal_lines)
+    balance = calculate_statement_lines(mapping_set_id, "balance_sheet", account_rows, account_rows, cash_flow_amounts, {})
+    income = calculate_statement_lines(mapping_set_id, "income_statement", account_rows, account_rows, cash_flow_amounts, {})
+    cash_flow = calculate_statement_lines(mapping_set_id, "cash_flow_statement", account_rows, account_rows, cash_flow_amounts, {})
+    net_profit = _line_amount(income.lines, "IS-NET-PROFIT")
+    equity = calculate_statement_lines(
+        mapping_set_id,
+        "equity_statement",
+        account_rows,
+        account_rows,
+        cash_flow_amounts,
+        {},
+        seed_values={"IS-NET-PROFIT": net_profit},
+    )
 
-    balance_sheet = BalanceSheet(
-        title="资产负债表",
-        period=request.period,
-        items=[
-            StatementLineItem(code="BS-CASH", name="货币资金", amount=cash, formula="1001/1002 借方余额"),
-            StatementLineItem(code="BS-AR", name="应收账款", amount=accounts_receivable, formula="1122 借方余额"),
-            StatementLineItem(code="BS-INVENTORY", name="存货", amount=inventory, formula="1405 借方余额"),
-            StatementLineItem(code="BS-FA", name="固定资产", amount=fixed_assets, formula="1601 借方余额"),
-            StatementLineItem(code="BS-ST-LOAN", name="短期借款", amount=short_term_loans, formula="2001 贷方余额"),
-            StatementLineItem(code="BS-TAX", name="应交税费", amount=tax_payable, formula="2221 贷方余额"),
-            StatementLineItem(code="BS-AP", name="应付账款", amount=accounts_payable, formula="2202 贷方余额"),
-            StatementLineItem(code="BS-EQUITY", name="所有者权益", amount=total_equity, formula="4001 贷方余额或资产-负债"),
-        ],
-        total_assets=_q(total_assets),
-        total_liabilities=_q(total_liabilities),
-        total_equity=_q(total_equity),
-        total_liabilities_and_equity=_q(total_liabilities_and_equity),
-        balanced=_q(total_assets) == _q(total_liabilities_and_equity),
-    )
-    income_statement = IncomeStatement(
-        title="利润表",
-        period=request.period,
-        items=[
-            StatementLineItem(code="IS-REVENUE", name="营业收入", amount=revenue, formula="6001/6051 贷方发生额"),
-            StatementLineItem(code="IS-COST", name="营业成本", amount=cost, formula="6401 借方发生额"),
-            StatementLineItem(code="IS-EXPENSE", name="期间费用", amount=expense, formula="6601/6602/6603 借方发生额"),
-            StatementLineItem(code="IS-NET-PROFIT", name="净利润", amount=net_profit, formula="营业收入-营业成本-期间费用"),
-        ],
-        total_revenue=_q(revenue),
-        total_cost=_q(cost),
-        total_expense=_q(expense),
-        total_profit=_q(total_profit),
-        net_profit=_q(net_profit),
-    )
-    cash_flow_statement = CashFlowStatement(
-        title="现金流量表",
-        period=request.period,
-        items=[
-            StatementLineItem(code="CF-OPERATING", name="经营活动现金流量净额", amount=ZERO, formula="凭证 MVP 暂未拆分现金流项目"),
-            StatementLineItem(code="CF-INVESTING", name="投资活动现金流量净额", amount=ZERO, formula="凭证 MVP 暂未拆分现金流项目"),
-            StatementLineItem(code="CF-FINANCING", name="筹资活动现金流量净额", amount=ZERO, formula="凭证 MVP 暂未拆分现金流项目"),
-        ],
-        operating_cash_flow_net=ZERO,
-        investing_cash_flow_net=ZERO,
-        financing_cash_flow_net=ZERO,
-        net_cash_flow=ZERO,
-    )
-    equity_statement = EquityStatement(
-        title="所有者权益变动表",
-        period=request.period,
-        items=[
-            StatementLineItem(code="EQ-OPENING", name="期初所有者权益", amount=ZERO, formula="凭证 MVP 无期初余额"),
-            StatementLineItem(code="EQ-PROFIT", name="本期净利润", amount=_q(net_profit), formula="利润表净利润"),
-            StatementLineItem(code="EQ-CLOSING", name="期末所有者权益", amount=_q(total_equity), formula="资产-负债"),
-        ],
-        opening_equity=ZERO,
-        current_period_profit=_q(net_profit),
-        closing_equity=_q(total_equity),
-    )
+    balance_sheet = _balance_sheet_from_lines(request.period, balance.lines)
+    income_statement = _income_statement_from_lines(request.period, income.lines)
+    cash_flow_statement = _cash_flow_statement_from_lines(request.period, cash_flow.lines)
+    equity_statement = _equity_statement_from_lines(request.period, equity.lines)
+    validation_items = balance.validation_items + income.validation_items + cash_flow.validation_items + equity.validation_items
+    for warning in cash_warnings:
+        validation_items.append(_warning_validation("cash_flow_inferred", "现金流项目推断", warning))
+
     return _bundle(
         request=request,
         source=source,
@@ -220,6 +209,9 @@ def _bundle_from_ledger(
         income_statement=income_statement,
         cash_flow_statement=cash_flow_statement,
         equity_statement=equity_statement,
+        mapping_set_id=mapping_set_id,
+        trace_items=balance.trace_items + income.trace_items + cash_flow.trace_items + equity.trace_items,
+        validation_items=validation_items,
     )
 
 
@@ -231,6 +223,9 @@ def _bundle(
     income_statement: IncomeStatement,
     cash_flow_statement: CashFlowStatement,
     equity_statement: EquityStatement,
+    mapping_set_id: str,
+    trace_items: list[StatementLineTrace],
+    validation_items: list[StatementValidationItem],
 ) -> FinancialStatementBundle:
     base_currency = "CNY"
     foreign_currency_line_count = _foreign_currency_line_count(request.account_set_id, request.period, base_currency)
@@ -244,6 +239,9 @@ def _bundle(
         period=request.period,
         company_name=COMPANY_NAME,
         source=source,
+        mapping_set_id=mapping_set_id,
+        trace_items=trace_items if request.include_trace else [],
+        validation_items=validation_items,
         summary=FinancialStatementGenerationSummary(
             account_set_id=request.account_set_id,
             period=request.period,
@@ -259,6 +257,92 @@ def _bundle(
         cash_flow_statement=cash_flow_statement,
         equity_statement=equity_statement,
         management_summary=management_summary,
+    )
+
+
+def _balance_sheet_from_lines(period: str, lines: list[StatementLineItem]) -> BalanceSheet:
+    total_assets = _line_amount(lines, "BS-TOTAL-ASSETS")
+    total_liabilities = _line_amount(lines, "BS-AP") + _line_amount(lines, "BS-TAX")
+    total_equity = _line_amount(lines, "BS-EQUITY")
+    total_liabilities_and_equity = _line_amount(lines, "BS-TOTAL-LIAB-EQUITY")
+    return BalanceSheet(
+        title="资产负债表",
+        period=period,
+        items=lines,
+        total_assets=total_assets,
+        total_liabilities=_q(total_liabilities),
+        total_equity=total_equity,
+        total_liabilities_and_equity=total_liabilities_and_equity,
+        balanced=total_assets == total_liabilities_and_equity,
+    )
+
+
+def _income_statement_from_lines(period: str, lines: list[StatementLineItem]) -> IncomeStatement:
+    total_revenue = _line_amount(lines, "IS-REVENUE")
+    total_cost = _line_amount(lines, "IS-COST")
+    total_tax_surcharge = _line_amount(lines, "IS-TAX-SURCHARGE")
+    total_expense = _line_amount(lines, "IS-EXPENSE") + total_tax_surcharge
+    net_profit = _line_amount(lines, "IS-NET-PROFIT")
+    return IncomeStatement(
+        title="利润表",
+        period=period,
+        items=lines,
+        total_revenue=total_revenue,
+        total_cost=total_cost,
+        total_expense=_q(total_expense),
+        total_profit=net_profit,
+        net_profit=net_profit,
+    )
+
+
+def _cash_flow_statement_from_lines(period: str, lines: list[StatementLineItem]) -> CashFlowStatement:
+    operating = _line_amount(lines, "CF-OPERATING-NET")
+    investing = _line_amount(lines, "CF-INVESTING-NET")
+    financing = _line_amount(lines, "CF-FINANCING-NET")
+    return CashFlowStatement(
+        title="现金流量表",
+        period=period,
+        items=lines,
+        operating_cash_flow_net=operating,
+        investing_cash_flow_net=investing,
+        financing_cash_flow_net=financing,
+        net_cash_flow=_line_amount(lines, "CF-NET-INCREASE"),
+    )
+
+
+def _equity_statement_from_lines(period: str, lines: list[StatementLineItem]) -> EquityStatement:
+    return EquityStatement(
+        title="所有者权益变动表",
+        period=period,
+        items=lines,
+        opening_equity=_line_amount(lines, "EQ-OPENING"),
+        current_period_profit=_line_amount(lines, "EQ-PROFIT"),
+        closing_equity=_line_amount(lines, "EQ-CLOSING"),
+    )
+
+
+def _line_amount(lines: list[StatementLineItem], code: str) -> Decimal:
+    for line in lines:
+        if line.code == code:
+            return _q(line.amount)
+    return ZERO
+
+
+def _ledger_account_to_row(account: LedgerAccountSummary) -> dict:
+    return {
+        "account_code": account.account_code,
+        "account_name": account.account_name,
+        "debit_total": account.debit_total,
+        "credit_total": account.credit_total,
+    }
+
+
+def _warning_validation(code: str, name: str, message: str) -> StatementValidationItem:
+    return StatementValidationItem(
+        validation_code=code,
+        validation_name=name,
+        status="warning",
+        message=message,
     )
 
 

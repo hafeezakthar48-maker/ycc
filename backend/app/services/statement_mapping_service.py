@@ -65,13 +65,14 @@ def calculate_statement_lines(
     account_activities: list[dict],
     cash_flow_amounts: dict[str, Decimal],
     period_close_amounts: dict[str, Decimal],
+    seed_values: dict[str, Decimal] | None = None,
 ) -> StatementCalculationResult:
     rules = [
         rule
         for rule in list_statement_mapping_rules(mapping_set_id)
         if rule.statement_type == statement_type and rule.enabled
     ]
-    values: dict[str, Decimal] = {}
+    values: dict[str, Decimal] = dict(seed_values or {})
     lines: list[StatementLineItem] = []
     traces: list[StatementLineTrace] = []
 

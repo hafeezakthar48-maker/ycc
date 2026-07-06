@@ -164,3 +164,13 @@ def test_financial_statement_summary_reports_base_currency_and_foreign_line_coun
     assert bundle.summary.base_currency == "CNY"
     assert bundle.summary.foreign_currency_line_count == 2
     assert any("外币分录 2 行" in item for item in bundle.management_summary.highlights)
+
+
+def test_financial_statements_include_mapping_trace_and_validations():
+    result = generate_financial_statements(FinancialStatementGenerateRequest(period="2026-06"))
+
+    assert result.mapping_set_id.startswith("stmtmap_default")
+    assert result.trace_items
+    assert result.validation_items
+    assert any(item.validation_code == "balance_sheet_identity" for item in result.validation_items)
+    assert all(trace.line_code for trace in result.trace_items)

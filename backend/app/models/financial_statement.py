@@ -3,6 +3,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.finance import MONTH_PATTERN
+from app.models.statement_mapping import StatementLineTrace, StatementValidationItem
 
 
 class FinancialStatementGenerateRequest(BaseModel):
@@ -11,6 +12,8 @@ class FinancialStatementGenerateRequest(BaseModel):
     period: str = Field(pattern=MONTH_PATTERN)
     account_set_id: str = Field(default="default", min_length=1, max_length=64)
     operator: str = Field(default="财务主管", min_length=1, max_length=32)
+    mapping_set_id: str | None = Field(default=None, max_length=128)
+    include_trace: bool = True
 
 
 class StatementLineItem(BaseModel):
@@ -84,6 +87,9 @@ class FinancialStatementBundle(BaseModel):
     period: str
     company_name: str
     source: str
+    mapping_set_id: str
+    trace_items: list[StatementLineTrace]
+    validation_items: list[StatementValidationItem]
     summary: FinancialStatementGenerationSummary
     balance_sheet: BalanceSheet
     income_statement: IncomeStatement
