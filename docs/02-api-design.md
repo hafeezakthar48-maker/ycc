@@ -370,6 +370,122 @@ POST /api/v1/receivable-payable/settlements
 
 当前往来 API 不覆盖销售订单、采购订单、合同台账、银行流水自动抓取、自动付款、信用额度审批、完整催收流程、预收预付复杂重分类或复杂坏账组合模型。
 
+## 银行对账 Phase 9
+
+```text
+POST /api/v1/bank-reconciliation/statements/import
+GET /api/v1/bank-reconciliation/matches?account_set_id=default&bank_account_id=bank-001&period=2026-06&minimum_score=80
+POST /api/v1/bank-reconciliation/confirm
+GET /api/v1/bank-reconciliation/statements?account_set_id=default&bank_account_id=bank-001&period=2026-06
+```
+
+导入银行流水请求：
+
+```json
+{
+  "account_set_id": "default",
+  "lines": [
+    {
+      "account_set_id": "default",
+      "bank_account_id": "bank-001",
+      "transaction_date": "2026-06-30",
+      "direction": "inflow",
+      "amount": "1200.00",
+      "currency": "CNY",
+      "counterparty_name": "上海客户A",
+      "summary": "销售回款",
+      "bank_reference": "B20260630001"
+    }
+  ]
+}
+```
+
+导入响应返回 `imported_count`、`duplicate_count` 和已导入 `lines`。去重键为 `account_set_id + bank_account_id + bank_reference`。
+
+匹配候选响应：
+
+```json
+{
+  "account_set_id": "default",
+  "bank_account_id": "bank-001",
+  "period": "2026-06",
+  "minimum_score": 80,
+  "candidates": [
+    {
+      "statement_line_id": "bankline-...",
+      "journal_entry_id": "je-...",
+      "journal_line_id": "jl-...",
+      "direction": "inflow",
+      "score": 100,
+      "reasons": ["金额一致", "日期一致", "摘要匹配"],
+      "statement_date": "2026-06-30",
+      "journal_date": "2026-06-30",
+      "statement_amount": "1200.00",
+      "journal_amount": "1200.00",
+      "currency": "CNY",
+      "counterparty_name": "上海客户A",
+      "summary": "销售回款"
+    }
+  ]
+}
+```
+
+匹配候选只读取正式已过账资金分录，科目范围为 `1001/1002/1012`。银行流入匹配资金借方，银行流出匹配资金贷方；当前评分规则为金额一致 60 分、日期一致 25 分、摘要匹配 15 分。
+
+确认对账请求：
+
+```json
+{
+  "account_set_id": "default",
+  "bank_account_id": "bank-001",
+  "period": "2026-06",
+  "statement_line_ids": ["bankline-..."],
+  "journal_line_ids": ["jl-..."],
+  "confirmed_by": "treasury-user",
+  "note": "月末回款对账"
+}
+```
+
+确认记录返回 `reconciliation_id`、来源流水行、来源分录行、确认人、确认时间和可选 `settlement_ids`。确认只追加 `BankReconciliationMatch`；已关闭期间新增确认返回 `409`。如果请求体包含 `receivable_payable_settlement`，后端会透传给八期 `CounterpartySettlementCreate` 并创建应收应付核销记录。
+
+银行余额调节表响应：
+
+```json
+{
+  "account_set_id": "default",
+  "bank_account_id": "bank-001",
+  "period": "2026-06",
+  "bank_balance": "1200.00",
+  "book_balance": "1200.00",
+  "bank_received_not_booked": "0.00",
+  "bank_paid_not_booked": "0.00",
+  "book_received_not_bank": "0.00",
+  "book_paid_not_bank": "0.00",
+  "adjusted_bank_balance": "1200.00",
+  "adjusted_book_balance": "1200.00",
+  "unmatched_statement_count": 0,
+  "unmatched_journal_count": 0,
+  "unmatched_statement_lines": [],
+  "unmatched_journal_lines": []
+}
+```
+
+权限点：
+
+- `bank_reconciliation.read`
+- `bank_reconciliation.import`
+- `bank_reconciliation.match`
+- `bank_reconciliation.confirm`
+
+审计事件：
+
+- `bank_reconciliation.statement.import`
+- `bank_reconciliation.match.suggest`
+- `bank_reconciliation.match.confirm`
+- `bank_reconciliation.statement.read`
+
+当前银行对账 API 不接真实网银，不保存网银登录凭据，不做银企直连签名、自动付款、银行回单官方验真、多币种换汇拆分对账或完整出纳复核流程。
+
 ## 正式会计核算引擎一期
 
 ```text

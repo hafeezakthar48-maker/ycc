@@ -30,10 +30,11 @@
 - 财务报表自动生成 MVP：支持资产负债表、利润表、现金流量表、所有者权益变动表、管理报表摘要、快照归档和 Excel/PDF 导出
 - 电子会计档案 Phase 7：凭证附件生成档案文档索引，记录 SHA-256、OCR 状态、验真状态、保管期限，并支持创建案卷和下载归档 ZIP
 - 往来核算 Phase 8：基于正式分录和客户/供应商辅助维度生成应收应付未清项、余额、账龄分析、部分核销和坏账准备期末动作
+- 银行对账 Phase 9：支持银行流水导入去重、资金分录匹配候选、人工确认对账、银行余额调节表和收付款往来核销联动
 - AI 凭证草稿：支持费用采购、库存采购、销售收入三类场景，自动生成借贷分录草稿、借贷平衡检查、风险提示和法规引用
 - AI 自动审核：审核凭证分录、发票号码、摘要、交易对方、价税勾稽、借贷平衡和增值税科目方向，输出评分、评级、错误清单和整改建议
 
-第一版支持先下载标准模板，再上传 `.xlsx` / `.xlsm` 分析；WPS 表格请先另存为 `.xlsx`。发票图片 / PDF 上传入口已预留，但当前本地环境未内置真实 OCR 引擎，系统会明确提示需接入 OCR 服务，不会伪造图片或 PDF 识别结果。凭证中心当前使用 SQLite 持久化工作流库保存演示凭证、审核状态、过账状态、账套标识、附件元数据和月度编号序列；正式核算一期已新增独立 SQLite 正式分录库，已审核凭证过账会生成 `journal_entry` / `journal_line`，账簿和财务报表优先读取正式分录来源，无正式分录时再回退 MVP 凭证工作流或样例经营数据。电子会计档案当前只保存文档索引、哈希、可选文本摘录和案卷清单，不把原始二进制永久写入数据库，不提供 CA 签章、官方验真或长期冷备。往来核算当前只以正式分录和客户/供应商辅助维度为来源，不从摘要或报表缓存反推；核销只记录未清项匹配关系，不改写历史正式分录。固定资产当前为内存台账 MVP，用于验证资产生命周期、折旧和盘点流程。工资管理当前为简化计算 MVP，用于验证工资、社保、公积金、个税和人工成本分析流程。财务报表当前为单账套、单期间生成 MVP，用于验证报表取数和管理摘要，不替代正式财务报表编制与披露。自动审核只做规则提示和风险定位，不构成最终审计意见。暂不支持 WPS 原生 `.et`、旧版 `.xls`、自动申报税务、每日实时政策同步或自动失效判断。
+第一版支持先下载标准模板，再上传 `.xlsx` / `.xlsm` 分析；WPS 表格请先另存为 `.xlsx`。发票图片 / PDF 上传入口已预留，但当前本地环境未内置真实 OCR 引擎，系统会明确提示需接入 OCR 服务，不会伪造图片或 PDF 识别结果。凭证中心当前使用 SQLite 持久化工作流库保存演示凭证、审核状态、过账状态、账套标识、附件元数据和月度编号序列；正式核算一期已新增独立 SQLite 正式分录库，已审核凭证过账会生成 `journal_entry` / `journal_line`，账簿和财务报表优先读取正式分录来源，无正式分录时再回退 MVP 凭证工作流或样例经营数据。电子会计档案当前只保存文档索引、哈希、可选文本摘录和案卷清单，不把原始二进制永久写入数据库，不提供 CA 签章、官方验真或长期冷备。往来核算当前只以正式分录和客户/供应商辅助维度为来源，不从摘要或报表缓存反推；核销只记录未清项匹配关系，不改写历史正式分录。银行对账当前以导入银行流水和正式资金分录为来源，确认记录只追加，不修改银行流水或正式分录。固定资产当前为内存台账 MVP，用于验证资产生命周期、折旧和盘点流程。工资管理当前为简化计算 MVP，用于验证工资、社保、公积金、个税和人工成本分析流程。财务报表当前为单账套、单期间生成 MVP，用于验证报表取数和管理摘要，不替代正式财务报表编制与披露。自动审核只做规则提示和风险定位，不构成最终审计意见。暂不支持 WPS 原生 `.et`、旧版 `.xls`、真实网银直连、自动付款、自动申报税务、每日实时政策同步或自动失效判断。
 
 ## OCR 发票识别
 
@@ -73,7 +74,7 @@
 - 按账套保存凭证，当前内置 `default` 和 `cross_border` 两个账套。
 - 将已审核凭证标记为过账或反过账；会计期间关闭前必须没有未过账凭证，关闭后禁止继续过账。
 
-当前实现保留凭证中心工作流库，同时接入正式核算一期、多币种核算二期、电子会计档案 Phase 7 和往来核算 Phase 8。已审核凭证过账会生成正式不可变分录；反过账不删除原分录，而是生成冲销分录并保留原分录审计轨迹。凭证附件上传后会生成会计档案文档索引和哈希，往来核算从正式分录行生成未清项和账龄，永久原件存储、CA 签章、官方发票验真和完整档案移交流程仍放入后续阶段。
+当前实现保留凭证中心工作流库，同时接入正式核算一期、多币种核算二期、电子会计档案 Phase 7、往来核算 Phase 8 和银行对账 Phase 9。已审核凭证过账会生成正式不可变分录；反过账不删除原分录，而是生成冲销分录并保留原分录审计轨迹。凭证附件上传后会生成会计档案文档索引和哈希，往来核算从正式分录行生成未清项和账龄，银行对账从导入流水和 `1001/1002/1012` 资金分录生成调节表，永久原件存储、CA 签章、官方发票验真和完整档案移交流程仍放入后续阶段。
 
 ## 账簿读模型 MVP
 
@@ -202,6 +203,32 @@ POST /api/v1/receivable-payable/settlements
 回归命令：
 ```powershell
 python -m pytest backend/tests/test_receivable_payable_service.py backend/tests/test_receivable_payable_api.py backend/tests/test_period_close_service.py backend/tests/test_accounting_service.py backend/tests/test_system_admin_api.py backend/tests/test_module_registry_api.py
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
+## 银行对账 Phase 9
+
+后端新增银行流水、匹配候选、确认对账和银行余额调节表接口：
+
+```text
+POST /api/v1/bank-reconciliation/statements/import
+GET /api/v1/bank-reconciliation/matches?account_set_id=default&bank_account_id=bank-001&period=2026-06&minimum_score=80
+POST /api/v1/bank-reconciliation/confirm
+GET /api/v1/bank-reconciliation/statements?account_set_id=default&bank_account_id=bank-001&period=2026-06
+```
+
+银行流水按 `account_set_id + bank_account_id + bank_reference` 去重。匹配候选基于银行流水与正式资金分录生成，正式资金分录只读取 `1001 库存现金`、`1002 银行存款`、`1012 其他货币资金`；评分规则当前为金额一致 60 分、日期一致 25 分、摘要匹配 15 分。确认对账只追加 `BankReconciliationMatch`，不修改正式分录或银行流水金额；已关闭期间拒绝新增确认。
+
+银行余额调节表展示银行账面余额、企业账面余额、银行已收企业未收、银行已付企业未付、企业已收银行未收、企业已付银行未付和调节后余额。确认接口可透传八期 `CounterpartySettlementCreate`，用于收付款确认后联动应收应付核销。
+
+前端 AI 财务中心新增“银行余额调节表”面板，展示银行账户、调节前后余额、银行未达账项、企业未达账项和匹配候选。接口受 `bank_reconciliation.read`、`bank_reconciliation.import`、`bank_reconciliation.match`、`bank_reconciliation.confirm` 权限控制，并记录 `bank_reconciliation.statement.import`、`bank_reconciliation.match.suggest`、`bank_reconciliation.match.confirm`、`bank_reconciliation.statement.read` 审计事件。
+
+当前不接真实网银，不保存网银登录凭据，不做银企直连签名、自动付款、银行回单官方验真、多币种换汇拆分对账或完整出纳复核流程。
+
+回归命令：
+```powershell
+python -m pytest backend/tests/test_bank_reconciliation_service.py backend/tests/test_bank_reconciliation_api.py backend/tests/test_receivable_payable_service.py backend/tests/test_accounting_service.py backend/tests/test_system_admin_api.py backend/tests/test_module_registry_api.py
 npm --prefix frontend test
 npm --prefix frontend run build
 ```
