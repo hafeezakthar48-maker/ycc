@@ -26,6 +26,7 @@ import type {
   FinancialStatementBundle,
   FinancialStatementGenerateRequest
 } from "../types/financialStatement";
+import type { StatementMappingSetResponse } from "../types/statementMapping";
 import type {
   FixedAssetCreateRequest,
   FixedAssetDepreciationRunRequest,
@@ -728,6 +729,23 @@ export function generateFinancialStatements(
     fetcher,
     actorId
   );
+}
+
+export function fetchDefaultStatementMappingSet(
+  accountSetId = "default",
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<StatementMappingSetResponse> {
+  return fetcher(
+    `${apiBase}/api/v1/financial-statements/mapping-sets/default?account_set_id=${encodeURIComponent(accountSetId)}`,
+    { headers: { "X-Actor-Id": actorId } }
+  ).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`报表映射 API 请求失败：${response.status}`);
+    }
+    return response.json() as Promise<StatementMappingSetResponse>;
+  });
 }
 
 export function runPeriodCloseChecks(

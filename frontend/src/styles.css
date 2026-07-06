@@ -1938,6 +1938,42 @@ button:disabled {
   margin-bottom: 14px;
 }
 
+.statement-mapping-panel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.statement-mapping-meta,
+.statement-tab-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.statement-mapping-meta span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #334155;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.statement-tab-list {
+  justify-content: flex-start;
+}
+
+.statement-mapping-table {
+  min-width: 760px;
+}
+
 .statement-actions {
   display: flex;
   align-items: center;
@@ -2009,6 +2045,11 @@ button:disabled {
   gap: 12px;
 }
 
+.statement-validation-panel {
+  display: grid;
+  gap: 12px;
+}
+
 .statement-kpi-list,
 .statement-risk-list {
   display: flex;
@@ -2046,6 +2087,45 @@ button:disabled {
   border-radius: 8px;
   padding: 10px;
   color: #92400e;
+  background: #fffbeb;
+}
+
+.statement-validation-list,
+.statement-trace-list {
+  display: grid;
+  gap: 8px;
+}
+
+.statement-validation,
+.statement-trace-list p {
+  margin: 0;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  padding: 10px;
+  color: #475569;
+  background: #f8fafc;
+  line-height: 1.5;
+}
+
+.statement-validation strong,
+.statement-trace-list span {
+  margin-right: 8px;
+  color: #172033;
+  font-weight: 900;
+}
+
+.statement-validation--passed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.statement-validation--failed {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.statement-validation--warning {
+  border-color: #fed7aa;
   background: #fffbeb;
 }
 
@@ -2760,6 +2840,8 @@ details ul {
   .fixed-asset-action-row,
   .payroll-toolbar,
   .payroll-actions,
+  .statement-mapping-meta,
+  .statement-tab-list,
   .statement-actions {
     align-items: stretch;
     flex-direction: column;
@@ -2769,6 +2851,7 @@ details ul {
   .fixed-asset-action-row button,
   .fixed-asset-form button,
   .payroll-actions button,
+  .statement-tab-list button,
   .statement-actions button {
     width: 100%;
   }

@@ -4,6 +4,8 @@ export interface FinancialStatementGenerateRequest {
   period: string;
   account_set_id?: string;
   operator?: string;
+  mapping_set_id?: string | null;
+  include_trace?: boolean;
 }
 
 export interface StatementLineItem {
@@ -61,6 +63,26 @@ export interface ManagementStatementSummary {
   risks: string[];
 }
 
+export interface StatementLineTrace {
+  line_code: string;
+  rule_id: string;
+  source_type: string;
+  source_account_codes: string[];
+  cash_flow_item_codes: string[];
+  formula: string;
+  amount: MoneyValue;
+  warnings: string[];
+}
+
+export interface StatementValidationItem {
+  validation_code: string;
+  validation_name: string;
+  status: "passed" | "failed" | "warning";
+  message: string;
+  expected_amount?: MoneyValue | null;
+  actual_amount?: MoneyValue | null;
+}
+
 export interface FinancialStatementGenerationSummary {
   account_set_id: string;
   period: string;
@@ -77,6 +99,9 @@ export interface FinancialStatementBundle {
   period: string;
   company_name: string;
   source: string;
+  mapping_set_id: string;
+  trace_items: StatementLineTrace[];
+  validation_items: StatementValidationItem[];
   summary: FinancialStatementGenerationSummary;
   balance_sheet: BalanceSheet;
   income_statement: IncomeStatement;

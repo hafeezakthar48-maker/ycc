@@ -28,6 +28,13 @@ function sourceLabel(source: string) {
   return source === "reviewed_vouchers" ? "已审核凭证" : "样例经营数据";
 }
 
+function validationLabel(status: string) {
+  if (status === "passed") {
+    return "通过";
+  }
+  return status === "failed" ? "未通过" : "提示";
+}
+
 export default function FinancialStatementPanel({ period }: FinancialStatementPanelProps) {
   const [bundle, setBundle] = useState<FinancialStatementBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -171,6 +178,10 @@ export default function FinancialStatementPanel({ period }: FinancialStatementPa
           <span>外币分录</span>
           <strong>{bundle?.summary.foreign_currency_line_count ?? 0}</strong>
         </article>
+        <article>
+          <span>映射集</span>
+          <strong>{bundle?.mapping_set_id ?? "读取中"}</strong>
+        </article>
       </div>
 
       <div className="financial-statement-grid">
@@ -203,6 +214,30 @@ export default function FinancialStatementPanel({ period }: FinancialStatementPa
           <div className="statement-risk-list">
             {(bundle?.management_summary.risks ?? []).map((item) => (
               <p key={item}>{item}</p>
+            ))}
+          </div>
+        </section>
+        <section id="statement-validation-panel" className="panel statement-validation-panel">
+          <div className="panel-header">
+            <div>
+              <span className="eyebrow">校验追溯</span>
+              <h3>报表生成校验</h3>
+            </div>
+          </div>
+          <div className="statement-validation-list">
+            {(bundle?.validation_items ?? []).map((item) => (
+              <p key={item.validation_code} className={`statement-validation statement-validation--${item.status}`}>
+                <strong>{validationLabel(item.status)}</strong>
+                {item.validation_name}：{item.message}
+              </p>
+            ))}
+          </div>
+          <div className="statement-trace-list">
+            {(bundle?.trace_items ?? []).slice(0, 12).map((trace) => (
+              <p key={`${trace.rule_id}-${trace.line_code}`}>
+                <span>{trace.line_code}</span>
+                {trace.formula}，来源 {trace.source_account_codes.join(" / ") || trace.cash_flow_item_codes.join(" / ") || "公式或样例数据"}
+              </p>
             ))}
           </div>
         </section>

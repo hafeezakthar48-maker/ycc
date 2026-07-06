@@ -20,6 +20,7 @@ import PeriodClosePanel from "./PeriodClosePanel";
 import PolicyLibraryPanel from "./PolicyLibraryPanel";
 import ReportPanel from "./ReportPanel";
 import RiskPanel from "./RiskPanel";
+import StatementMappingPanel from "./StatementMappingPanel";
 import SystemAdminPanel from "./SystemAdminPanel";
 import VoucherCenterPanel from "./VoucherCenterPanel";
 import VoucherDraftPanel from "./VoucherDraftPanel";
@@ -118,6 +119,7 @@ export default function DashboardLayout({ modules, homeDashboard, overview, repo
           <FixedAssetPanel period={overview.period} />
           <PayrollPanel period={overview.period} />
           <PeriodClosePanel period={overview.period} />
+          <StatementMappingPanel />
           <FinancialStatementPanel period={overview.period} />
           <VoucherDraftPanel />
           <AuditReviewPanel />
