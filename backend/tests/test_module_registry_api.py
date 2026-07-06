@@ -67,6 +67,15 @@ def test_finance_center_registry_declares_ledger_read_model_api():
     module = response.json()
     assert "/api/v1/ledger" in module["api_prefixes"]
     assert "ledger.general.read" in module["audit_events"]
+    assert "/api/v1/accounting-archive" in module["api_prefixes"]
+    assert {
+        "archive.document.list",
+        "archive.document.get",
+        "archive.document.create",
+        "archive.case.create",
+        "archive.package.download",
+        "archive.verification.update",
+    }.issubset(set(module["audit_events"]))
     assert "/api/v1/period-close" in module["api_prefixes"]
     assert {
         "period_close.run_started",

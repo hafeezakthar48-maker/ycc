@@ -34,6 +34,11 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
         "statement.snapshot.lock",
         "statement.archive.view",
         "statement.export",
+        "archive.read",
+        "archive.document.create",
+        "archive.case.create",
+        "archive.package.download",
+        "archive.verification.update",
         "system.audit.read",
         "platform.client.manage",
     }.issubset(permission_codes)
@@ -55,6 +60,11 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
     assert "statement.snapshot.lock" in role_by_id["finance_manager"]["permission_codes"]
     assert "statement.archive.view" in role_by_id["finance_manager"]["permission_codes"]
     assert "statement.export" in role_by_id["finance_manager"]["permission_codes"]
+    assert "archive.read" in role_by_id["finance_manager"]["permission_codes"]
+    assert "archive.document.create" in role_by_id["finance_manager"]["permission_codes"]
+    assert "archive.case.create" in role_by_id["finance_manager"]["permission_codes"]
+    assert "archive.package.download" in role_by_id["finance_manager"]["permission_codes"]
+    assert "archive.verification.update" in role_by_id["finance_manager"]["permission_codes"]
     assert "ledger.read" in role_by_id["auditor"]["permission_codes"]
     assert "platform.client.manage" in role_by_id["api_integrator"]["permission_codes"]
 
