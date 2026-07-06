@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
+from uuid import uuid4
+
+from fastapi import HTTPException
 
 from app.models.receivable_payable import (
     AgingBucket,
@@ -11,6 +14,8 @@ from app.models.receivable_payable import (
     CounterpartyBalanceItem,
     CounterpartyBalanceResponse,
     CounterpartyOpenItem,
+    CounterpartySettlement,
+    CounterpartySettlementCreate,
 )
 from app.services.accounting_service import list_counterparty_journal_lines
 
@@ -165,6 +170,45 @@ def build_aging_report(
         ],
         total_base_balance=sum((bucket["amount"] for bucket in overall_buckets.values()), ZERO),
     )
+
+
+def create_counterparty_settlement(payload: CounterpartySettlementCreate) -> CounterpartySettlement:
+    from app.services.accounting_period_service import is_accounting_period_closed
+
+    if is_accounting_period_closed(payload.period, payload.account_set_id):
+        raise HTTPException(status_code=409, detail="会计期间已关闭，不能新增往来核销。")
+
+    open_items = {
+        item.open_item_id: item
+        for item in build_counterparty_open_items(payload.account_set_id, payload.period, payload.open_item_type)
+    }
+    for settlement_item in payload.items:
+        open_item = open_items.get(settlement_item.open_item_id)
+        if open_item is None:
+            raise HTTPException(status_code=404, detail=f"未找到往来未清项：{settlement_item.open_item_id}")
+        if open_item.counterparty_type != payload.counterparty_type or open_item.counterparty_code != payload.counterparty_code:
+            raise HTTPException(status_code=422, detail="核销客户或供应商与未清项不一致。")
+        if settlement_item.source_line_id != open_item.source_line_id:
+            raise HTTPException(status_code=422, detail="核销分录行与未清项来源不一致。")
+        if settlement_item.settled_base_amount > open_item.open_base_amount:
+            raise HTTPException(status_code=422, detail="核销金额不能超过未清金额。")
+
+    settlement = CounterpartySettlement(
+        settlement_id=f"settle_{uuid4().hex}",
+        account_set_id=payload.account_set_id,
+        period=payload.period,
+        open_item_type=payload.open_item_type,
+        settlement_date=payload.settlement_date,
+        counterparty_type=payload.counterparty_type,
+        counterparty_code=payload.counterparty_code,
+        payment_entry_id=payload.payment_entry_id,
+        items=payload.items,
+        total_settled_base_amount=sum((item.settled_base_amount for item in payload.items), ZERO),
+        settled_by=payload.settled_by,
+        created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    )
+    _SETTLEMENTS[settlement.settlement_id] = settlement.model_dump()
+    return settlement
 
 
 def _signed_open_amount(direction: str, amount: Decimal, normal_direction: str) -> Decimal:

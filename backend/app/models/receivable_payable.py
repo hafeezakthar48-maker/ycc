@@ -90,3 +90,42 @@ class CounterpartyAgingResponse(BaseModel):
     buckets: list[AgingBucket]
     items: list[CounterpartyAgingItem]
     total_base_balance: Decimal
+
+
+class CounterpartySettlementItemCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    open_item_id: str
+    source_line_id: str
+    settled_base_amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+
+
+class CounterpartySettlementCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    open_item_type: OpenItemType
+    settlement_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    counterparty_type: CounterpartyType
+    counterparty_code: str
+    payment_entry_id: str
+    items: list[CounterpartySettlementItemCreate] = Field(min_length=1, max_length=100)
+    settled_by: str
+
+
+class CounterpartySettlement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    settlement_id: str
+    account_set_id: str
+    period: str
+    open_item_type: OpenItemType
+    settlement_date: str
+    counterparty_type: CounterpartyType
+    counterparty_code: str
+    payment_entry_id: str
+    items: list[CounterpartySettlementItemCreate]
+    total_settled_base_amount: Decimal
+    settled_by: str
+    created_at: str
