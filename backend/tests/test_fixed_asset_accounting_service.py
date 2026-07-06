@@ -7,7 +7,12 @@ from app.models.fixed_asset import FixedAssetCreateRequest
 from app.models.fixed_asset_accounting import FormalAssetAccountingCard
 from app.services.accounting_period_service import close_accounting_period, reset_accounting_period_store
 from app.services.accounting_service import list_journal_entries, reset_accounting_store
-from app.services.fixed_asset_accounting_service import capitalize_fixed_asset, reset_fixed_asset_accounting_store
+from app.services.fixed_asset_accounting_service import (
+    calculate_monthly_depreciation,
+    capitalize_fixed_asset,
+    post_fixed_asset_depreciation,
+    reset_fixed_asset_accounting_store,
+)
 from app.services.fixed_asset_service import create_fixed_asset, reset_fixed_asset_store
 
 
@@ -82,6 +87,49 @@ def test_capitalize_fixed_asset_rejects_closed_period():
         capitalize_fixed_asset("default", asset.id, "2026-01", "2202", "asset-user")
 
     assert exc_info.value.status_code == 409
+
+
+def test_calculate_monthly_depreciation_uses_straight_line():
+    amount = calculate_monthly_depreciation(
+        original_cost=Decimal("120000.00"),
+        salvage_value=Decimal("12000.00"),
+        useful_life_months=60,
+    )
+
+    assert amount == Decimal("1800.00")
+
+
+def test_post_fixed_asset_depreciation_posts_one_entry_per_capitalized_asset():
+    asset = create_fixed_asset(_asset_request())
+    capitalize_fixed_asset("default", asset.id, "2026-01", "2202", "asset-user")
+
+    result = post_fixed_asset_depreciation("default", "2026-06", "asset-user")
+
+    assert result.status == "generated"
+    assert result.depreciated_count == 1
+    assert result.total_depreciation == Decimal("1800.00")
+    entry = result.entries[0]
+    assert entry.source_type == "fixed_asset_depreciation"
+    assert entry.source_id == f"fixed_asset_depreciation:default:2026-06:{asset.id}"
+    assert [(line.account_code, line.direction, line.base_amount) for line in entry.lines] == [
+        ("6602", "debit", Decimal("1800.00")),
+        ("1602", "credit", Decimal("1800.00")),
+    ]
+    assert entry.lines[0].dimensions[0].dimension_code == asset.asset_code
+
+
+def test_post_fixed_asset_depreciation_is_idempotent_by_period_and_asset():
+    asset = create_fixed_asset(_asset_request())
+    capitalize_fixed_asset("default", asset.id, "2026-01", "2202", "asset-user")
+
+    first = post_fixed_asset_depreciation("default", "2026-06", "asset-user")
+    second = post_fixed_asset_depreciation("default", "2026-06", "asset-user")
+
+    assert first.status == "generated"
+    assert second.status == "existing"
+    assert second.total_depreciation == Decimal("1800.00")
+    entries = list_journal_entries("default", "2026-06").entries
+    assert len([entry for entry in entries if entry.source_type == "fixed_asset_depreciation"]) == 1
 
 
 def _asset_request() -> FixedAssetCreateRequest:

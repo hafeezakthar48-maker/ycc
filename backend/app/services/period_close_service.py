@@ -185,6 +185,16 @@ def _generate_fixed_asset_depreciation(
     generated_by: str,
 ) -> PeriodCloseActionResult:
     source_type = "fixed_asset_depreciation"
+    from app.services.fixed_asset_accounting_service import post_fixed_asset_depreciation
+
+    result = post_fixed_asset_depreciation(account_set_id, period, generated_by)
+    return _action_result(
+        source_type,
+        result.status,
+        result.entries,
+        result.total_depreciation,
+        "已按固定资产卡片生成正式折旧分录。",
+    )
     source_id = f"{source_type}:{account_set_id}:{period}"
     existing = _existing_entries(account_set_id, period, source_type, source_id)
     if existing:

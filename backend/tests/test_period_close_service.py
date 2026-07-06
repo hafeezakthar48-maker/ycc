@@ -11,6 +11,7 @@ from app.services.accounting_service import (
     upsert_auxiliary_dimension,
     upsert_exchange_rate,
 )
+from app.services.fixed_asset_accounting_service import capitalize_fixed_asset, reset_fixed_asset_accounting_store
 from app.services.fixed_asset_service import create_fixed_asset, reset_fixed_asset_store
 from app.services.payroll_service import calculate_payroll, reset_payroll_store
 from app.services.period_close_service import (
@@ -28,6 +29,7 @@ from app.services.receivable_payable_service import reset_receivable_payable_sto
 def setup_function():
     reset_accounting_store()
     reset_fixed_asset_store()
+    reset_fixed_asset_accounting_store()
     reset_payroll_store()
     reset_period_close_store()
     reset_receivable_payable_store()
@@ -59,7 +61,7 @@ def test_period_close_checks_return_required_items():
 
 
 def test_generate_fixed_asset_depreciation_action_posts_entry_and_is_idempotent():
-    create_fixed_asset(
+    asset = create_fixed_asset(
         FixedAssetCreateRequest(
             name="生产设备",
             category="设备",
@@ -69,6 +71,7 @@ def test_generate_fixed_asset_depreciation_action_posts_entry_and_is_idempotent(
             useful_life_months=60,
         )
     )
+    capitalize_fixed_asset("default", asset.id, "2026-01", "2202", "finance-user")
 
     first = generate_period_close_actions(
         account_set_id="default",
@@ -88,6 +91,8 @@ def test_generate_fixed_asset_depreciation_action_posts_entry_and_is_idempotent(
     assert first[0].amount == Decimal("1800.00")
     assert second[0].status == "existing"
     assert [entry.source_type for entry in entries].count("fixed_asset_depreciation") == 1
+    assert entries[-1].source_id == f"fixed_asset_depreciation:default:2026-06:{asset.id}"
+    assert entries[-1].lines[0].dimensions[0].dimension_type == "asset"
 
 
 def test_generate_payroll_accrual_action_uses_calculated_payroll_summary():
