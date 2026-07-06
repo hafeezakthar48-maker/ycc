@@ -8,6 +8,7 @@ from app.api.dashboard import router as dashboard_router
 from app.api.ecommerce import router as ecommerce_router
 from app.api.finance_qa import router as finance_qa_router
 from app.api.financial_statements import router as financial_statements_router
+from app.api.fixed_asset_accounting import router as fixed_asset_accounting_router
 from app.api.fixed_assets import router as fixed_assets_router
 from app.api.home import router as home_router
 from app.api.invoice_ocr import router as invoice_ocr_router
@@ -32,6 +33,7 @@ def include_api_routers(app: FastAPI) -> None:
     app.include_router(ecommerce_router)
     app.include_router(finance_qa_router)
     app.include_router(financial_statements_router)
+    app.include_router(fixed_asset_accounting_router)
     app.include_router(fixed_assets_router)
     app.include_router(home_router)
     app.include_router(invoice_ocr_router)

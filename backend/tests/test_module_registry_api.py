@@ -70,6 +70,7 @@ def test_finance_center_registry_declares_ledger_read_model_api():
     assert "/api/v1/accounting-archive" in module["api_prefixes"]
     assert "/api/v1/receivable-payable" in module["api_prefixes"]
     assert "/api/v1/bank-reconciliation" in module["api_prefixes"]
+    assert "/api/v1/fixed-asset-accounting" in module["api_prefixes"]
     assert "银行对账" in module["capabilities"]
     assert {
         "archive.document.list",
@@ -90,6 +91,13 @@ def test_finance_center_registry_declares_ledger_read_model_api():
         "bank_reconciliation.match.suggest",
         "bank_reconciliation.match.confirm",
         "bank_reconciliation.statement.read",
+    }.issubset(set(module["audit_events"]))
+    assert {
+        "fixed_asset_accounting.card.read",
+        "fixed_asset_accounting.capitalize",
+        "fixed_asset_accounting.depreciation.post",
+        "fixed_asset_accounting.impairment.post",
+        "fixed_asset_accounting.disposal.post",
     }.issubset(set(module["audit_events"]))
     assert "/api/v1/period-close" in module["api_prefixes"]
     assert {

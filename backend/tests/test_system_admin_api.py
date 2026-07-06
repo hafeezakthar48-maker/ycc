@@ -25,6 +25,10 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
         "ledger.read",
         "fixed_asset.read",
         "fixed_asset.depreciate",
+        "fixed_asset_accounting.read",
+        "fixed_asset_accounting.post",
+        "fixed_asset_accounting.impair",
+        "fixed_asset_accounting.dispose",
         "payroll.calculate",
         "statement.generate",
         "statement.validate",
@@ -58,6 +62,9 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
     assert "voucher.review" in role_by_id["finance_manager"]["permission_codes"]
     assert "ledger.read" in role_by_id["finance_manager"]["permission_codes"]
     assert "fixed_asset.depreciate" in role_by_id["finance_manager"]["permission_codes"]
+    assert "fixed_asset_accounting.post" in role_by_id["finance_manager"]["permission_codes"]
+    assert "fixed_asset_accounting.impair" in role_by_id["finance_manager"]["permission_codes"]
+    assert "fixed_asset_accounting.dispose" in role_by_id["finance_manager"]["permission_codes"]
     assert "payroll.calculate" in role_by_id["finance_manager"]["permission_codes"]
     assert "statement.generate" in role_by_id["finance_manager"]["permission_codes"]
     assert "statement.validate" in role_by_id["finance_manager"]["permission_codes"]
@@ -80,6 +87,7 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
     assert "bank_reconciliation.match" in role_by_id["finance_manager"]["permission_codes"]
     assert "bank_reconciliation.confirm" in role_by_id["finance_manager"]["permission_codes"]
     assert "ledger.read" in role_by_id["auditor"]["permission_codes"]
+    assert "fixed_asset_accounting.read" in role_by_id["auditor"]["permission_codes"]
     assert "receivable_payable.read" in role_by_id["auditor"]["permission_codes"]
     assert "bank_reconciliation.read" in role_by_id["auditor"]["permission_codes"]
     assert "platform.client.manage" in role_by_id["api_integrator"]["permission_codes"]

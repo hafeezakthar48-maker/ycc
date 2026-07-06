@@ -42,6 +42,50 @@ class FormalAssetAccountingCard(BaseModel):
     disposal_entry_ids: list[str] = Field(default_factory=list)
 
 
+class FormalAssetAccountingCardListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    cards: list[FormalAssetAccountingCard]
+
+
+class FixedAssetCapitalizationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    asset_id: str = Field(min_length=1, max_length=80)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    credit_account_code: str = Field(default="2202", min_length=1, max_length=32)
+
+
+class FixedAssetDepreciationPostRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+
+
+class FixedAssetImpairmentPostRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    asset_id: str = Field(min_length=1, max_length=80)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+
+
+class FixedAssetDisposalPostRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    asset_id: str = Field(min_length=1, max_length=80)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    proceeds_amount: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
+    disposal_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    proceeds_account_code: str = Field(default="1002", min_length=1, max_length=32)
+    reason: str = Field(default="固定资产正式处置", min_length=1, max_length=200)
+
+
 class FixedAssetAccountingEntryBatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
