@@ -3,6 +3,12 @@ import type {
   AuditResponse
 } from "../types/audit";
 import type {
+  BankBalanceReconciliationStatement,
+  BankMatchCandidateResponse,
+  BankStatementImportRequest,
+  BankStatementImportResult
+} from "../types/bankReconciliation";
+import type {
   AccountListResponse,
   AuxiliaryDimensionCreateRequest,
   AuxiliaryDimensionListResponse,
@@ -508,6 +514,65 @@ export function fetchCounterpartyAging(
 ): Promise<CounterpartyAgingResponse> {
   return requestLedgerJson<CounterpartyAgingResponse>(
     `/api/v1/receivable-payable/aging?account_set_id=${encodeURIComponent(accountSetId)}&period=${encodeURIComponent(period)}&open_item_type=${openItemType}&as_of_date=${encodeURIComponent(asOfDate)}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchBankReconciliationStatement(
+  accountSetId: string,
+  bankAccountId: string,
+  period: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<BankBalanceReconciliationStatement> {
+  const query = new URLSearchParams({
+    account_set_id: accountSetId,
+    bank_account_id: bankAccountId,
+    period
+  });
+  return requestLedgerJson<BankBalanceReconciliationStatement>(
+    `/api/v1/bank-reconciliation/statements?${query.toString()}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchBankMatchCandidates(
+  accountSetId: string,
+  bankAccountId: string,
+  period: string,
+  minimumScore = 80,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<BankMatchCandidateResponse> {
+  const query = new URLSearchParams({
+    account_set_id: accountSetId,
+    bank_account_id: bankAccountId,
+    period,
+    minimum_score: String(minimumScore)
+  });
+  return requestLedgerJson<BankMatchCandidateResponse>(
+    `/api/v1/bank-reconciliation/matches?${query.toString()}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function importBankStatementLines(
+  request: BankStatementImportRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<BankStatementImportResult> {
+  return mutateLedgerJson<BankStatementImportResult>(
+    "/api/v1/bank-reconciliation/statements/import",
+    request,
     apiBase,
     fetcher,
     actorId

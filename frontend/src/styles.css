@@ -1946,21 +1946,43 @@ button:disabled {
 
 .statement-archive-panel,
 .accounting-archive-panel,
-.receivable-payable-panel {
+.receivable-payable-panel,
+.bank-reconciliation-panel {
   display: grid;
   gap: 14px;
   margin-bottom: 14px;
 }
 
-.receivable-payable-grid {
+.receivable-payable-grid,
+.bank-reconciliation-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
   gap: 14px;
   align-items: start;
 }
 
-.receivable-payable-table {
+.receivable-payable-table,
+.bank-reconciliation-table {
   min-width: 640px;
+}
+
+.bank-reconciliation-candidate-table {
+  min-width: 880px;
+}
+
+.bank-reconciliation-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bank-reconciliation-actions input {
+  width: 132px;
+  min-height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 10px;
+  font: inherit;
 }
 
 .statement-mapping-meta,
@@ -2857,6 +2879,7 @@ details ul {
   .voucher-result-grid,
   .ledger-grid,
   .receivable-payable-grid,
+  .bank-reconciliation-grid,
   .fixed-asset-grid,
   .payroll-result-grid,
   .financial-statement-grid,
@@ -2885,6 +2908,7 @@ details ul {
   }
 
   .ledger-summary-grid,
+  .bank-reconciliation-summary-grid,
   .fixed-asset-summary-grid,
   .payroll-summary-grid,
   .financial-statement-summary-grid,
@@ -2980,6 +3004,7 @@ details ul {
   .ecommerce-metrics,
   .period-status-strip,
   .ledger-summary-grid,
+  .bank-reconciliation-summary-grid,
   .fixed-asset-summary-grid,
   .payroll-summary-grid,
   .financial-statement-summary-grid,
@@ -3000,6 +3025,7 @@ details ul {
   .statement-mapping-meta,
   .statement-tab-list,
   .statement-actions,
+  .bank-reconciliation-actions,
   .statement-archive-actions,
   .statement-archive-row-actions {
     align-items: stretch;
@@ -3012,6 +3038,7 @@ details ul {
   .payroll-actions button,
   .statement-tab-list button,
   .statement-actions button,
+  .bank-reconciliation-actions button,
   .statement-archive-actions button,
   .statement-archive-row-actions button {
     width: 100%;

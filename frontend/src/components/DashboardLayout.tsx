@@ -8,6 +8,7 @@ import type { HomeDashboard } from "../types/homeDashboard";
 import type { NavigationOsModule } from "../types/moduleRegistry";
 import AccountingArchivePanel from "./AccountingArchivePanel";
 import AuditReviewPanel from "./AuditReviewPanel";
+import BankReconciliationPanel from "./BankReconciliationPanel";
 import ECommerceProfitPanel from "./ECommerceProfitPanel";
 import FinanceQaPanel from "./FinanceQaPanel";
 import FinancialStatementPanel from "./FinancialStatementPanel";
@@ -121,6 +122,7 @@ export default function DashboardLayout({ modules, homeDashboard, overview, repo
           <AccountingArchivePanel period={overview.period} />
           <LedgerPanel period={overview.period} />
           <ReceivablePayablePanel period={overview.period} />
+          <BankReconciliationPanel period={overview.period} />
           <FixedAssetPanel period={overview.period} />
           <PayrollPanel period={overview.period} />
           <PeriodClosePanel period={overview.period} />
