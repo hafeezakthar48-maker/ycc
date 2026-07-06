@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.accounting_service import reset_accounting_store
+from app.services.statement_archive_service import reset_statement_archive_store
 from app.services.system_admin_service import reset_system_admin_store
 from app.services.voucher_center_service import reset_voucher_store
 
@@ -16,6 +17,7 @@ def isolated_statement_api(tmp_path, monkeypatch):
     monkeypatch.setenv("FINANCE_AI_ACCOUNTING_DB_PATH", str(tmp_path / "formal-accounting.sqlite3"))
     reset_voucher_store()
     reset_accounting_store()
+    reset_statement_archive_store()
     reset_system_admin_store()
 
 
@@ -94,3 +96,51 @@ def test_finance_center_registry_declares_financial_statement_api():
     assert "statement.generate" in module["audit_events"]
     assert "statement.mapping.view" in module["audit_events"]
     assert "statement.mapping.update" in module["audit_events"]
+
+
+def test_create_lock_and_export_statement_snapshot():
+    create_response = client.post(
+        "/api/v1/financial-statements/snapshots",
+        headers={"X-Actor-Id": "u-finance-manager"},
+        json={"period": "2026-06", "account_set_id": "default", "created_by": "finance-user"},
+    )
+
+    assert create_response.status_code == 200
+    snapshot = create_response.json()
+    assert snapshot["period"] == "2026-06"
+    assert snapshot["version"] == 1
+    assert snapshot["content_hash"]
+
+    lock_response = client.post(
+        f"/api/v1/financial-statements/snapshots/{snapshot['snapshot_id']}/lock",
+        headers={"X-Actor-Id": "u-finance-manager"},
+        json={"locked_by": "finance-manager"},
+    )
+
+    assert lock_response.status_code == 200
+    assert lock_response.json()["locked"] is True
+
+    export_response = client.get(
+        f"/api/v1/financial-statements/snapshots/{snapshot['snapshot_id']}/export/xlsx",
+        headers={"X-Actor-Id": "u-finance-manager"},
+    )
+
+    assert export_response.status_code == 200
+    assert export_response.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert "financial-statements-default-2026-06-v1.xlsx" in export_response.headers["content-disposition"]
+
+
+def test_list_statement_snapshots_returns_versions():
+    client.post(
+        "/api/v1/financial-statements/snapshots",
+        headers={"X-Actor-Id": "u-finance-manager"},
+        json={"period": "2026-06", "account_set_id": "default", "created_by": "finance-user"},
+    )
+
+    response = client.get(
+        "/api/v1/financial-statements/snapshots?account_set_id=default&period=2026-06",
+        headers={"X-Actor-Id": "u-finance-manager"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] >= 1
