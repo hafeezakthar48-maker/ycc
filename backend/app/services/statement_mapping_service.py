@@ -1,17 +1,32 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal
 
+from pydantic import BaseModel
+
+from app.models.financial_statement import StatementLineItem
 from app.models.statement_mapping import (
     CashFlowItemMapping,
+    StatementLineTrace,
     StatementMappingRule,
     StatementMappingSet,
+    StatementValidationItem,
 )
 
+
+ZERO = Decimal("0.00")
+TWOPLACES = Decimal("0.01")
 
 _MAPPING_SETS: dict[str, StatementMappingSet] = {}
 _MAPPING_RULES: dict[str, list[StatementMappingRule]] = {}
 _CASH_FLOW_ITEMS: dict[str, CashFlowItemMapping] = {}
+
+
+class StatementCalculationResult(BaseModel):
+    lines: list[StatementLineItem]
+    trace_items: list[StatementLineTrace]
+    validation_items: list[StatementValidationItem]
 
 
 def _now_iso() -> str:
@@ -43,6 +58,65 @@ def list_statement_mapping_rules(mapping_set_id: str) -> list[StatementMappingRu
     return list(_MAPPING_RULES.get(mapping_set_id, []))
 
 
+def calculate_statement_lines(
+    mapping_set_id: str,
+    statement_type: str,
+    account_balances: list[dict],
+    account_activities: list[dict],
+    cash_flow_amounts: dict[str, Decimal],
+    period_close_amounts: dict[str, Decimal],
+) -> StatementCalculationResult:
+    rules = [
+        rule
+        for rule in list_statement_mapping_rules(mapping_set_id)
+        if rule.statement_type == statement_type and rule.enabled
+    ]
+    values: dict[str, Decimal] = {}
+    lines: list[StatementLineItem] = []
+    traces: list[StatementLineTrace] = []
+
+    for rule in sorted(rules, key=lambda item: item.display_order):
+        if rule.source_type == "account_balance":
+            amount, accounts = _sum_account_rows(account_balances, rule.account_prefixes, rule.normal_side)
+            formula = f"{'/'.join(rule.account_prefixes)} {rule.normal_side} balance"
+        elif rule.source_type == "account_activity":
+            amount, accounts = _sum_account_rows(account_activities, rule.account_prefixes, rule.normal_side)
+            formula = f"{'/'.join(rule.account_prefixes)} {rule.normal_side} activity"
+        elif rule.source_type == "cash_flow_item":
+            amount = sum(cash_flow_amounts.get(code, ZERO) for code in rule.cash_flow_item_codes)
+            accounts = []
+            formula = " + ".join(rule.cash_flow_item_codes)
+        elif rule.source_type == "period_close_result":
+            amount = sum(period_close_amounts.get(prefix, ZERO) for prefix in rule.account_prefixes)
+            accounts = list(rule.account_prefixes)
+            formula = "period close result"
+        else:
+            amount = _evaluate_formula(rule.formula, values)
+            accounts = []
+            formula = rule.formula
+
+        amount = _q(amount * Decimal(rule.sign))
+        values[rule.line_code] = amount
+        lines.append(StatementLineItem(code=rule.line_code, name=rule.line_name, amount=amount, formula=formula))
+        traces.append(
+            StatementLineTrace(
+                line_code=rule.line_code,
+                rule_id=rule.rule_id,
+                source_type=rule.source_type,
+                source_account_codes=accounts,
+                cash_flow_item_codes=list(rule.cash_flow_item_codes),
+                formula=formula,
+                amount=amount,
+            )
+        )
+
+    return StatementCalculationResult(
+        lines=lines,
+        trace_items=traces,
+        validation_items=_validate_statement(statement_type, values),
+    )
+
+
 def _rule(
     mapping_set_id: str,
     statement_type: str,
@@ -70,6 +144,58 @@ def _rule(
         formula=formula,
         sign=sign,
     )
+
+
+def _sum_account_rows(rows: list[dict], prefixes: list[str], normal_side: str) -> tuple[Decimal, list[str]]:
+    total = ZERO
+    matched_accounts: list[str] = []
+    for row in rows:
+        account_code = str(row["account_code"])
+        if not any(account_code.startswith(prefix) for prefix in prefixes):
+            continue
+        debit_total = Decimal(str(row.get("debit_total", "0")))
+        credit_total = Decimal(str(row.get("credit_total", "0")))
+        matched_accounts.append(account_code)
+        if normal_side == "credit":
+            total += credit_total - debit_total
+        else:
+            total += debit_total - credit_total
+    return _q(total), matched_accounts
+
+
+def _evaluate_formula(formula: str, values: dict[str, Decimal]) -> Decimal:
+    tokens = formula.split()
+    total = ZERO
+    sign = Decimal("1")
+    for token in tokens:
+        if token == "+":
+            sign = Decimal("1")
+        elif token == "-":
+            sign = Decimal("-1")
+        else:
+            total += values.get(token, ZERO) * sign
+    return _q(total)
+
+
+def _validate_statement(statement_type: str, values: dict[str, Decimal]) -> list[StatementValidationItem]:
+    if statement_type == "balance_sheet":
+        expected = values.get("BS-TOTAL-ASSETS", ZERO)
+        actual = values.get("BS-TOTAL-LIAB-EQUITY", ZERO)
+        return [
+            StatementValidationItem(
+                validation_code="balance_sheet_identity",
+                validation_name="资产等于负债和所有者权益",
+                status="passed" if expected == actual else "failed",
+                message="资产负债表平衡" if expected == actual else "资产负债表不平衡",
+                expected_amount=expected,
+                actual_amount=actual,
+            )
+        ]
+    return []
+
+
+def _q(value: Decimal) -> Decimal:
+    return value.quantize(TWOPLACES)
 
 
 def _default_rules(mapping_set_id: str) -> list[StatementMappingRule]:
