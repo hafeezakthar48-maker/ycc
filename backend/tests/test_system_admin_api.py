@@ -42,6 +42,10 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
         "receivable_payable.read",
         "receivable_payable.settle",
         "receivable_payable.bad_debt",
+        "bank_reconciliation.read",
+        "bank_reconciliation.import",
+        "bank_reconciliation.match",
+        "bank_reconciliation.confirm",
         "system.audit.read",
         "platform.client.manage",
     }.issubset(permission_codes)
@@ -71,8 +75,13 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
     assert "receivable_payable.read" in role_by_id["finance_manager"]["permission_codes"]
     assert "receivable_payable.settle" in role_by_id["finance_manager"]["permission_codes"]
     assert "receivable_payable.bad_debt" in role_by_id["finance_manager"]["permission_codes"]
+    assert "bank_reconciliation.read" in role_by_id["finance_manager"]["permission_codes"]
+    assert "bank_reconciliation.import" in role_by_id["finance_manager"]["permission_codes"]
+    assert "bank_reconciliation.match" in role_by_id["finance_manager"]["permission_codes"]
+    assert "bank_reconciliation.confirm" in role_by_id["finance_manager"]["permission_codes"]
     assert "ledger.read" in role_by_id["auditor"]["permission_codes"]
     assert "receivable_payable.read" in role_by_id["auditor"]["permission_codes"]
+    assert "bank_reconciliation.read" in role_by_id["auditor"]["permission_codes"]
     assert "platform.client.manage" in role_by_id["api_integrator"]["permission_codes"]
 
     users = users_response.json()["users"]

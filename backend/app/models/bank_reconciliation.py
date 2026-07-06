@@ -51,6 +51,13 @@ class BankStatementImportResult(BaseModel):
     lines: list[BankStatementLine]
 
 
+class BankStatementImportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    lines: list[BankStatementLineCreate] = Field(min_length=1, max_length=500)
+
+
 class BankMatchCandidate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

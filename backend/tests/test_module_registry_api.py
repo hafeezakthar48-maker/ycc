@@ -69,6 +69,8 @@ def test_finance_center_registry_declares_ledger_read_model_api():
     assert "ledger.general.read" in module["audit_events"]
     assert "/api/v1/accounting-archive" in module["api_prefixes"]
     assert "/api/v1/receivable-payable" in module["api_prefixes"]
+    assert "/api/v1/bank-reconciliation" in module["api_prefixes"]
+    assert "银行对账" in module["capabilities"]
     assert {
         "archive.document.list",
         "archive.document.get",
@@ -82,6 +84,12 @@ def test_finance_center_registry_declares_ledger_read_model_api():
         "receivable_payable.aging.read",
         "receivable_payable.settle",
         "receivable_payable.bad_debt.provision",
+    }.issubset(set(module["audit_events"]))
+    assert {
+        "bank_reconciliation.statement.import",
+        "bank_reconciliation.match.suggest",
+        "bank_reconciliation.match.confirm",
+        "bank_reconciliation.statement.read",
     }.issubset(set(module["audit_events"]))
     assert "/api/v1/period-close" in module["api_prefixes"]
     assert {
