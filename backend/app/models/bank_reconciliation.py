@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.receivable_payable import CounterpartySettlementCreate
+
 
 BankTransactionDirection = Literal["inflow", "outflow"]
 BankMatchStatus = Literal["unmatched", "suggested", "matched", "ignored"]
@@ -75,3 +77,52 @@ class BankMatchCandidateResponse(BaseModel):
     period: str
     minimum_score: int
     candidates: list[BankMatchCandidate]
+
+
+class BankReconciliationConfirmRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    bank_account_id: str = Field(min_length=1, max_length=80)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    statement_line_ids: list[str] = Field(min_length=1, max_length=100)
+    journal_line_ids: list[str] = Field(min_length=1, max_length=100)
+    confirmed_by: str = Field(min_length=1, max_length=60)
+    note: str = Field(default="", max_length=200)
+    receivable_payable_settlement: CounterpartySettlementCreate | None = None
+
+
+class BankReconciliationMatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reconciliation_id: str
+    account_set_id: str
+    bank_account_id: str
+    period: str
+    statement_line_ids: list[str]
+    journal_line_ids: list[str]
+    status: Literal["matched", "reversed"] = "matched"
+    confirmed_by: str
+    confirmed_at: str
+    note: str = ""
+    settlement_ids: list[str] = Field(default_factory=list)
+
+
+class BankBalanceReconciliationStatement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    bank_account_id: str
+    period: str
+    bank_balance: Decimal
+    book_balance: Decimal
+    bank_received_not_booked: Decimal
+    bank_paid_not_booked: Decimal
+    book_received_not_bank: Decimal
+    book_paid_not_bank: Decimal
+    adjusted_bank_balance: Decimal
+    adjusted_book_balance: Decimal
+    unmatched_statement_count: int
+    unmatched_journal_count: int
+    unmatched_statement_lines: list[BankStatementLine]
+    unmatched_journal_lines: list[dict]
