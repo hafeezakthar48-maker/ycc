@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.accounting_service import reset_accounting_store
 from app.services.system_admin_service import reset_system_admin_store
 from app.services.voucher_center_service import reset_voucher_store
 
@@ -12,7 +13,9 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def isolated_statement_api(tmp_path, monkeypatch):
     monkeypatch.setenv("FINANCE_AI_VOUCHER_DB_PATH", str(tmp_path / "voucher-center.sqlite3"))
+    monkeypatch.setenv("FINANCE_AI_ACCOUNTING_DB_PATH", str(tmp_path / "formal-accounting.sqlite3"))
     reset_voucher_store()
+    reset_accounting_store()
     reset_system_admin_store()
 
 

@@ -27,7 +27,8 @@ def generate_financial_statements(
 ) -> FinancialStatementBundle:
     ledger = build_general_ledger(request.period, request.account_set_id)
     if ledger.accounts:
-        return _bundle_from_ledger(request, ledger.voucher_count, ledger.accounts)
+        source = "formal_journal_entries" if ledger.source == "formal_journal_entries" else "reviewed_vouchers"
+        return _bundle_from_ledger(request, ledger.voucher_count, ledger.accounts, source)
     return _bundle_from_sample(request)
 
 
@@ -131,6 +132,7 @@ def _bundle_from_ledger(
     request: FinancialStatementGenerateRequest,
     reviewed_voucher_count: int,
     accounts: list[LedgerAccountSummary],
+    source: str = "reviewed_vouchers",
 ) -> FinancialStatementBundle:
     cash = _sum_accounts(accounts, ("1001", "1002"), "asset")
     accounts_receivable = _sum_accounts(accounts, ("1122",), "asset")
@@ -211,7 +213,7 @@ def _bundle_from_ledger(
     )
     return _bundle(
         request=request,
-        source="reviewed_vouchers",
+        source=source,
         reviewed_voucher_count=reviewed_voucher_count,
         balance_sheet=balance_sheet,
         income_statement=income_statement,

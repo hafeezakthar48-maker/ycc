@@ -3,8 +3,10 @@ from typing import get_args
 
 import pytest
 
+from app.models.accounting import JournalEntryCreate, JournalLineCreate
 from app.models.financial_statement import FinancialStatementGenerateRequest
 from app.models.voucher_center import VoucherCenterCreateRequest, VoucherCenterLine
+from app.services.accounting_service import post_journal_entry, reset_accounting_store
 from app.services.financial_statement_service import generate_financial_statements
 from app.services.voucher_center_service import create_voucher, reset_voucher_store, review_voucher
 
@@ -12,7 +14,9 @@ from app.services.voucher_center_service import create_voucher, reset_voucher_st
 @pytest.fixture(autouse=True)
 def isolated_voucher_db(tmp_path, monkeypatch):
     monkeypatch.setenv("FINANCE_AI_VOUCHER_DB_PATH", str(tmp_path / "voucher-center.sqlite3"))
+    monkeypatch.setenv("FINANCE_AI_ACCOUNTING_DB_PATH", str(tmp_path / "formal-accounting.sqlite3"))
     reset_voucher_store()
+    reset_accounting_store()
 
 
 def test_financial_statements_fallback_to_sample_finance_data():
@@ -79,3 +83,36 @@ def test_financial_statements_use_reviewed_voucher_account_balances():
     assert result.income_statement.total_revenue == Decimal("1000.00")
     assert result.income_statement.net_profit == Decimal("1000.00")
     assert result.summary.reviewed_voucher_count == 1
+
+
+def test_financial_statements_prefer_formal_journal_entries():
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2026-06-18",
+            source_type="manual_adjustment",
+            source_id="revenue-1",
+            description="正式收入分录",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                ),
+            ],
+        )
+    )
+
+    bundle = generate_financial_statements(FinancialStatementGenerateRequest(period="2026-06", account_set_id="default"))
+
+    assert bundle.source == "formal_journal_entries"
+    assert bundle.income_statement.total_revenue == Decimal("1000.00")
