@@ -2,7 +2,9 @@ from decimal import Decimal
 
 import pytest
 
+from app.models.accounting import JournalEntryCreate, JournalLineCreate
 from app.models.voucher_center import VoucherCenterCreateRequest, VoucherCenterLine
+from app.services.accounting_service import post_journal_entry, reset_accounting_store
 from app.services.ledger_service import build_account_balance_table, build_detail_ledger, build_general_ledger
 from app.services.voucher_center_service import create_voucher, reset_voucher_store, review_voucher
 
@@ -10,7 +12,9 @@ from app.services.voucher_center_service import create_voucher, reset_voucher_st
 @pytest.fixture(autouse=True)
 def isolated_voucher_db(tmp_path, monkeypatch):
     monkeypatch.setenv("FINANCE_AI_VOUCHER_DB_PATH", str(tmp_path / "voucher-center.sqlite3"))
+    monkeypatch.setenv("FINANCE_AI_ACCOUNTING_DB_PATH", str(tmp_path / "formal-accounting.sqlite3"))
     reset_voucher_store()
+    reset_accounting_store()
 
 
 def _request(voucher_date: str = "2026-06-30", summary: str = "办公服务费") -> VoucherCenterCreateRequest:
@@ -104,3 +108,38 @@ def test_account_balance_table_reports_all_reviewed_account_balances():
     assert [account.account_code for account in balance_table.accounts] == ["2202", "22210101", "6602"]
     assert balance_table.accounts[0].balance_direction == "贷"
     assert balance_table.accounts[0].balance_amount == Decimal("1060.00")
+
+
+def test_general_ledger_prefers_formal_journal_entries():
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2026-06-18",
+            source_type="manual_adjustment",
+            source_id="manual-1",
+            description="正式分录测试",
+            lines=[
+                JournalLineCreate(
+                    account_code="6602",
+                    account_name="管理费用",
+                    direction="debit",
+                    original_amount=Decimal("100.00"),
+                    base_amount=Decimal("100.00"),
+                ),
+                JournalLineCreate(
+                    account_code="2202",
+                    account_name="应付账款",
+                    direction="credit",
+                    original_amount=Decimal("100.00"),
+                    base_amount=Decimal("100.00"),
+                ),
+            ],
+        )
+    )
+
+    ledger = build_general_ledger("2026-06", "default")
+
+    assert ledger.source == "formal_journal_entries"
+    assert ledger.entry_count == 2
+    assert ledger.total_debit == Decimal("100.00")
+    assert ledger.total_credit == Decimal("100.00")

@@ -36,6 +36,7 @@ class LedgerDetailLine(BaseModel):
 class GeneralLedgerResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    source: str = "mvp_voucher_workflow"
     period: str
     voucher_count: int = Field(ge=0)
     entry_count: int = Field(ge=0)
@@ -48,6 +49,7 @@ class GeneralLedgerResponse(BaseModel):
 class DetailLedgerResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    source: str = "mvp_voucher_workflow"
     period: str
     account_code: str
     account_name: str
@@ -62,6 +64,7 @@ class DetailLedgerResponse(BaseModel):
 class AccountBalanceTableResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    source: str = "mvp_voucher_workflow"
     period: str
     account_count: int = Field(ge=0)
     total_debit: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
