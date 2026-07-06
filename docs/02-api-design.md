@@ -466,6 +466,7 @@ POST /api/v1/payroll/calculate
 
 ```text
 POST /api/v1/financial-statements/generate
+GET /api/v1/financial-statements/mapping-sets/default?account_set_id=default
 ```
 
 请求：
@@ -474,7 +475,8 @@ POST /api/v1/financial-statements/generate
 {
   "period": "2026-06",
   "account_set_id": "default",
-  "operator": "财务主管"
+  "operator": "财务主管",
+  "include_trace": true
 }
 ```
 
@@ -485,8 +487,33 @@ POST /api/v1/financial-statements/generate
 - `cash_flow_statement`：现金流量表，包含经营、投资、筹资活动现金流量净额和现金净增加额。
 - `equity_statement`：所有者权益变动表，包含期初权益、本期净利润、权益调整和期末权益。
 - `management_summary`：管理报表摘要，包含净利率、资产负债率、现金流利润比、管理亮点和风险提示。
+- `mapping_set_id`：本次报表使用的映射集。
+- `trace_items`：报表项目追溯，包含项目编码、规则、来源科目、现金流项目、公式和金额。
+- `validation_items`：结构化校验结果，包含资产负债表恒等式、样例数据回退和现金流项目推断 warning。
 
-接口优先基于指定账套、指定期间的已审核凭证生成报表；当前账套无已审核凭证时，回退使用内置样例经营数据生成演示报表。当前 MVP 不覆盖合并报表、复杂金融工具、长期股权投资、递延所得税、现金流量表补充资料、附注披露或正式申报报表。
+默认映射集接口返回：
+
+```json
+{
+  "mapping_set": {
+    "mapping_set_id": "stmtmap_default_default",
+    "mapping_set_name": "中国企业会计准则通用报表映射"
+  },
+  "rules": [
+    {
+      "line_code": "BS-CASH",
+      "line_name": "货币资金",
+      "source_type": "account_balance",
+      "account_prefixes": ["1001", "1002"]
+    }
+  ]
+}
+```
+
+当前报表映射规则：资产负债表取期末余额；利润表取期间发生额；现金流量表优先读取分录行 `cash_flow_item_code`，缺失时按现金科目和对方科目推断并返回 warning；所有者权益变动表取期初权益、本期净利润、利润分配和期末权益。
+接口支持 `X-Actor-Id` 请求头，分别受 `statement.generate`、`statement.validate`、`statement.mapping.view` 和 `statement.mapping.manage` 权限控制，并记录 `statement.generate`、`statement.mapping.view` 和 `statement.mapping.update` 审计日志。
+
+接口优先基于指定账套、指定期间的正式分录生成报表；当前账套无正式分录时回退已审核凭证，无已审核凭证时回退使用内置样例经营数据生成演示报表。当前 MVP 不覆盖合并报表、复杂金融工具、长期股权投资、递延所得税、现金流量表补充资料、附注披露或正式申报报表。
 接口支持 `X-Actor-Id` 请求头，非 `system` 调用方必须具备 `statement.generate` 权限；成功或权限不足都会记录 `statement.generate` 审计日志。
 
 ## AI 自动审核

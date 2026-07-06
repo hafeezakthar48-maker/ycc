@@ -145,9 +145,11 @@
 
 - 支持优先基于正式分录生成资产负债表、利润表、现金流量表、所有者权益变动表和管理报表摘要。
 - 支持在当前账套无正式分录时回退已审核凭证；无已审核凭证时回退使用内置样例经营数据生成演示报表。
-- 支持输出报表来源、已审核凭证数、资产负债平衡状态、净利率、资产负债率和现金流利润比。
+- 支持默认“中国企业会计准则通用报表映射”映射集，覆盖资产负债表、利润表、现金流量表和所有者权益变动表。
+- 资产负债表按期末余额取数；利润表按期间发生额取数；现金流量表按 `cash_flow_item_code` 或现金科目/对方科目规则取数；所有者权益变动表按期初权益、净利润、利润分配和期末权益取数。
+- 支持输出报表来源、已审核凭证数、资产负债平衡状态、净利率、资产负债率、现金流利润比、生成追溯 `trace_items` 和公式校验 `validation_items`。
 - 当前报表生成为单账套、单期间 MVP，不覆盖合并报表、复杂金融工具、长期股权投资、递延所得税、现金流量表补充资料、附注披露或正式申报报表。
-- 财务报表 API 接入 `statement.generate` 权限和 `statement.generate` 审计日志。
+- 财务报表 API 接入 `statement.generate`、`statement.validate`、`statement.mapping.view`、`statement.mapping.manage` 权限，并记录 `statement.generate`、`statement.mapping.view`、`statement.mapping.update` 审计日志。
 
 ## FRD V1.0 一级模块基线
 

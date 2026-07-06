@@ -111,12 +111,25 @@
 
 当前财务报表模块支持：
 
-- 基于已审核凭证生成资产负债表、利润表、现金流量表、所有者权益变动表和管理报表摘要。
-- 当前账套无已审核凭证时，回退使用内置样例经营数据生成演示报表。
-- 输出资产负债平衡校验、报表来源、已审核凭证数、净利率、资产负债率和现金流利润比。
-- 接口受 `statement.generate` 权限控制，并记录 `statement.generate` 审计日志。
+- 基于正式分录优先生成资产负债表、利润表、现金流量表、所有者权益变动表和管理报表摘要；无正式分录时回退已审核凭证，再无数据时回退内置样例经营数据。
+- 使用默认“中国企业会计准则通用报表映射”计算报表项目：资产负债表取期末余额，利润表取期间发生额，现金流量表取现金流项目金额，所有者权益变动表取期初权益、净利润、利润分配和期末权益。
+- 现金流量表优先读取分录行 `cash_flow_item_code`；缺失时按现金科目与对方科目规则推断，并在校验结果中标记 warning。
+- 生成结果返回 `mapping_set_id`、`trace_items` 和 `validation_items`，可追溯项目编码、映射规则、来源科目、现金流项目、公式、金额和公式校验状态。
+- 接口受 `statement.generate`、`statement.validate`、`statement.mapping.view`、`statement.mapping.manage` 权限控制，并记录 `statement.generate`、`statement.mapping.view`、`statement.mapping.update` 审计事件。
 
 当前实现不覆盖合并报表、复杂金融工具、长期股权投资、递延所得税、现金流量表补充资料、附注披露、正式申报报表或审计定稿流程。
+
+## 报表映射引擎 Phase 5
+
+后端新增 `GET /api/v1/financial-statements/mapping-sets/default?account_set_id=default`，前端 AI 财务中心新增“报表映射”面板，展示四张标准报表的映射规则和取数公式。
+
+回归命令：
+
+```powershell
+python -m pytest backend/tests/test_statement_mapping_service.py backend/tests/test_financial_statement_service.py backend/tests/test_financial_statement_api.py backend/tests/test_accounting_service.py backend/tests/test_system_admin_api.py
+npm --prefix frontend test
+npm --prefix frontend run build
+```
 
 ## AI 自动审核
 
