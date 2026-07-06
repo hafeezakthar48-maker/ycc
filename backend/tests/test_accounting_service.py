@@ -7,6 +7,7 @@ from app.models.accounting import JournalEntryCreate, JournalLineCreate
 from app.services.accounting_service import (
     get_chart_of_accounts,
     get_journal_entry,
+    get_profit_loss_balances,
     list_journal_entries,
     post_journal_entry,
     reset_accounting_store,
@@ -93,3 +94,61 @@ def test_reverse_journal_entry_creates_reversal_without_deleting_original():
     assert reversal.lines[0].direction == "credit"
     assert reversal.lines[1].direction == "debit"
     assert list_journal_entries("default", "2026-06").total == 2
+
+
+def test_get_profit_loss_balances_returns_period_revenue_and_expense_balances():
+    post_journal_entry(
+        JournalEntryCreate(
+            entry_date="2026-06-30",
+            source_type="manual_test",
+            source_id="pl-balance-1",
+            description="损益余额测试",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                ),
+            ],
+        )
+    )
+    post_journal_entry(
+        JournalEntryCreate(
+            entry_date="2026-06-30",
+            source_type="manual_test",
+            source_id="pl-balance-2",
+            description="费用余额测试",
+            lines=[
+                JournalLineCreate(
+                    account_code="6602",
+                    account_name="管理费用",
+                    direction="debit",
+                    original_amount=Decimal("300.00"),
+                    base_amount=Decimal("300.00"),
+                ),
+                JournalLineCreate(
+                    account_code="2202",
+                    account_name="应付账款",
+                    direction="credit",
+                    original_amount=Decimal("300.00"),
+                    base_amount=Decimal("300.00"),
+                ),
+            ],
+        )
+    )
+
+    balances = get_profit_loss_balances("default", "2026-06")
+
+    assert {item["account_code"]: item["balance"] for item in balances} == {
+        "6001": Decimal("1000.00"),
+        "6602": Decimal("300.00"),
+    }

@@ -168,6 +168,10 @@ def generate_period_close_actions(
             results.append(_generate_tax_accrual(account_set_id, period, generated_by))
         elif action == "fx_revaluation":
             results.append(_generate_fx_revaluation(account_set_id, period, generated_by))
+        elif action == "profit_loss_carryforward":
+            results.append(_generate_profit_loss_carryforward(account_set_id, period, generated_by))
+        elif action == "year_end_profit_distribution":
+            results.append(_generate_year_end_profit_distribution(account_set_id, period, generated_by))
         else:
             raise HTTPException(status_code=422, detail=f"不支持的期末动作：{action}")
     return results
@@ -313,6 +317,83 @@ def _generate_fx_revaluation(account_set_id: str, period: str, generated_by: str
     if existing_entries:
         return _action_result(source_type, "existing", existing_entries, _money(total_amount), "外币期末重估分录已存在。")
     return _action_result(source_type, "skipped", [], Decimal("0.00"), "本期间没有需要重估的外币余额。")
+
+
+def _generate_profit_loss_carryforward(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:
+    source_type = "profit_loss_carryforward"
+    source_id = f"{source_type}:{account_set_id}:{period}"
+    existing = _existing_entries(account_set_id, period, source_type, source_id)
+    if existing:
+        return _action_result(source_type, "existing", existing, _entry_amount(existing), "损益结转分录已存在。")
+
+    from app.services.accounting_service import get_profit_loss_balances
+
+    balances = get_profit_loss_balances(account_set_id, period)
+    debit_rows: list[tuple[str, Decimal, str]] = []
+    credit_rows: list[tuple[str, Decimal, str]] = []
+    for balance in balances:
+        amount = _money(abs(balance["balance"]))
+        if amount <= Decimal("0.00"):
+            continue
+        if balance["account_type"] == "revenue":
+            if balance["balance"] > Decimal("0.00"):
+                debit_rows.append((balance["account_code"], amount, "收入结转"))
+                credit_rows.append(("4103", amount, "收入结转至本年利润"))
+            else:
+                debit_rows.append(("4103", amount, "收入反向结转"))
+                credit_rows.append((balance["account_code"], amount, "收入反向结转"))
+        else:
+            if balance["balance"] > Decimal("0.00"):
+                debit_rows.append(("4103", amount, "成本费用结转至本年利润"))
+                credit_rows.append((balance["account_code"], amount, "成本费用结转"))
+            else:
+                debit_rows.append((balance["account_code"], amount, "成本费用反向结转"))
+                credit_rows.append(("4103", amount, "成本费用反向结转"))
+
+    amount = _money(sum((row[1] for row in debit_rows), Decimal("0.00")))
+    if amount <= Decimal("0.00"):
+        return _action_result(source_type, "skipped", [], amount, "本期间没有需要结转的损益余额。")
+    entry = _post_grouped_entry(
+        account_set_id=account_set_id,
+        period=period,
+        source_type=source_type,
+        source_id=source_id,
+        description=f"{period} 损益结转",
+        generated_by=generated_by,
+        debit_rows=debit_rows,
+        credit_rows=credit_rows,
+    )
+    return _action_result(source_type, "generated", [entry], amount, "已生成损益结转分录。")
+
+
+def _generate_year_end_profit_distribution(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:
+    source_type = "year_end_profit_distribution"
+    source_id = f"{source_type}:{account_set_id}:{period}"
+    existing = _existing_entries(account_set_id, period, source_type, source_id)
+    if existing:
+        return _action_result(source_type, "existing", existing, _entry_amount(existing), "年终利润分配分录已存在。")
+
+    balance = _current_year_profit_balance(account_set_id, period)
+    amount = _money(abs(balance))
+    if amount <= Decimal("0.00"):
+        return _action_result(source_type, "skipped", [], amount, "本年利润余额为零，无需年终分配。")
+    if balance > Decimal("0.00"):
+        debit_rows = [("4103", amount, "本年利润转出")]
+        credit_rows = [("4104", amount, "转入未分配利润")]
+    else:
+        debit_rows = [("4104", amount, "未分配利润弥补亏损")]
+        credit_rows = [("4103", amount, "本年亏损转出")]
+    entry = _post_grouped_entry(
+        account_set_id=account_set_id,
+        period=period,
+        source_type=source_type,
+        source_id=source_id,
+        description=f"{period} 年终利润分配",
+        generated_by=generated_by,
+        debit_rows=debit_rows,
+        credit_rows=credit_rows,
+    )
+    return _action_result(source_type, "generated", [entry], amount, "已生成年终利润分配分录。")
 
 
 def _post_grouped_entry(
@@ -478,6 +559,24 @@ def _tax_base_amount(entries, account_codes: set[str]) -> Decimal:
             else:
                 amount -= line.base_amount
     return max(Decimal("0.00"), _money(amount))
+
+
+def _current_year_profit_balance(account_set_id: str, period: str) -> Decimal:
+    from app.services.accounting_service import list_journal_entries
+
+    year = period[:4]
+    balance = Decimal("0.00")
+    for entry in list_journal_entries(account_set_id).entries:
+        if entry.status != "posted" or not entry.period.startswith(year) or entry.period > period:
+            continue
+        for line in entry.lines:
+            if line.account_code != "4103":
+                continue
+            if line.direction == "credit":
+                balance += line.base_amount
+            else:
+                balance -= line.base_amount
+    return _money(balance)
 
 
 def _action_result(

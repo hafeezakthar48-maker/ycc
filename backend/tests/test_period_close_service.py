@@ -223,3 +223,100 @@ def test_fx_revaluation_generates_base_currency_adjustment_only():
     assert first[0].amount == Decimal("8.00")
     assert second[0].status == "existing"
     assert {line.currency for line in entry.lines} == {"CNY"}
+
+
+def _post_profit_loss_activity():
+    post_journal_entry(
+        JournalEntryCreate(
+            entry_date="2026-06-30",
+            source_type="manual_test",
+            source_id="pl-carryforward-revenue",
+            description="收入确认",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                ),
+            ],
+        )
+    )
+    post_journal_entry(
+        JournalEntryCreate(
+            entry_date="2026-06-30",
+            source_type="manual_test",
+            source_id="pl-carryforward-expense",
+            description="费用确认",
+            lines=[
+                JournalLineCreate(
+                    account_code="6602",
+                    account_name="管理费用",
+                    direction="debit",
+                    original_amount=Decimal("300.00"),
+                    base_amount=Decimal("300.00"),
+                ),
+                JournalLineCreate(
+                    account_code="2202",
+                    account_name="应付账款",
+                    direction="credit",
+                    original_amount=Decimal("300.00"),
+                    base_amount=Decimal("300.00"),
+                ),
+            ],
+        )
+    )
+
+
+def test_profit_loss_carryforward_closes_revenue_and_expense_accounts():
+    _post_profit_loss_activity()
+
+    first = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["profit_loss_carryforward"],
+        generated_by="finance-user",
+    )
+    second = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["profit_loss_carryforward"],
+        generated_by="finance-user",
+    )
+    entry = next(entry for entry in list_journal_entries("default", "2026-06").entries if entry.source_type == "profit_loss_carryforward")
+
+    assert first[0].status == "generated"
+    assert second[0].status == "existing"
+    assert any(line.account_code == "4103" and line.direction == "credit" for line in entry.lines)
+    assert any(line.account_code == "6602" and line.direction == "credit" for line in entry.lines)
+
+
+def test_year_end_profit_distribution_transfers_current_year_profit():
+    _post_profit_loss_activity()
+    generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["profit_loss_carryforward"],
+        generated_by="finance-user",
+    )
+
+    results = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["year_end_profit_distribution"],
+        generated_by="finance-user",
+    )
+    entry = next(entry for entry in list_journal_entries("default", "2026-06").entries if entry.source_type == "year_end_profit_distribution")
+
+    assert results[0].status == "generated"
+    assert results[0].amount == Decimal("700.00")
+    assert any(line.account_code == "4103" and line.direction == "debit" for line in entry.lines)
+    assert any(line.account_code == "4104" and line.direction == "credit" for line in entry.lines)

@@ -371,6 +371,39 @@ def get_foreign_currency_balances(account_set_id: str, period: str) -> list[dict
     return rows
 
 
+def get_profit_loss_balances(account_set_id: str, period: str) -> list[dict]:
+    validate_account_set(account_set_id)
+    profit_loss_codes = {"6001", "6051", "6301", "6401", "6402", "6403", "6601", "6602", "6603", "6701", "6711", "6901"}
+    account_map = {account.account_code: account for account in get_chart_of_accounts(account_set_id).accounts}
+    balances: dict[str, dict] = {}
+    for entry in list_journal_entries(account_set_id, period).entries:
+        if entry.status != "posted":
+            continue
+        for line in entry.lines:
+            if line.account_code not in profit_loss_codes:
+                continue
+            account = account_map[line.account_code]
+            row = balances.setdefault(
+                line.account_code,
+                {
+                    "account_code": line.account_code,
+                    "account_name": line.account_name,
+                    "account_type": account.account_type,
+                    "normal_balance": account.normal_balance,
+                    "balance": Decimal("0.00"),
+                },
+            )
+            row["balance"] += line.base_amount * _balance_sign(account.normal_balance, line.direction)
+
+    rows = []
+    for row in balances.values():
+        row["balance"] = row["balance"].quantize(TWO_PLACES)
+        if row["balance"] != Decimal("0.00"):
+            rows.append(row)
+    rows.sort(key=lambda row: row["account_code"])
+    return rows
+
+
 def get_journal_entry(entry_id: str) -> JournalEntryRecord:
     with _connection() as connection:
         row = connection.execute("SELECT payload_json FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
