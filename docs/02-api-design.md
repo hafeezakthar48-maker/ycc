@@ -261,6 +261,115 @@ GET /api/v1/accounting-archive/cases/{archive_case_id}/download
 
 当前归档 API 只提供档案索引、哈希校验、案卷清单和 ZIP 交换包，不覆盖 CA 签章、官方电子发票实时验真、对象存储 WORM、长期冷备、跨系统档案移交或档案销毁审批。
 
+## 往来核算 Phase 8
+
+```text
+GET /api/v1/receivable-payable/balances?account_set_id=default&period=2026-06&open_item_type=receivable
+GET /api/v1/receivable-payable/aging?account_set_id=default&period=2026-06&open_item_type=receivable&as_of_date=2026-06-30
+POST /api/v1/receivable-payable/settlements
+```
+
+余额响应：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "open_item_type": "receivable",
+  "total_base_balance": 1000,
+  "item_count": 1,
+  "items": [
+    {
+      "counterparty_type": "customer",
+      "counterparty_code": "CUST-SH-001",
+      "counterparty_name": "上海客户",
+      "open_item_type": "receivable",
+      "currency": "CNY",
+      "original_balance": 1000,
+      "base_balance": 1000,
+      "open_item_count": 1
+    }
+  ]
+}
+```
+
+账龄响应：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "open_item_type": "receivable",
+  "as_of_date": "2026-06-30",
+  "buckets": [
+    { "bucket_code": "0-30", "day_from": 0, "day_to": 30, "amount": 1000, "open_item_count": 1 },
+    { "bucket_code": "31-60", "day_from": 31, "day_to": 60, "amount": 0, "open_item_count": 0 },
+    { "bucket_code": "61-90", "day_from": 61, "day_to": 90, "amount": 0, "open_item_count": 0 },
+    { "bucket_code": "91-180", "day_from": 91, "day_to": 180, "amount": 0, "open_item_count": 0 },
+    { "bucket_code": "181-365", "day_from": 181, "day_to": 365, "amount": 0, "open_item_count": 0 },
+    { "bucket_code": "365+", "day_from": 366, "day_to": null, "amount": 0, "open_item_count": 0 }
+  ],
+  "items": [
+    {
+      "counterparty_type": "customer",
+      "counterparty_code": "CUST-SH-001",
+      "counterparty_name": "上海客户",
+      "buckets": [
+        { "bucket_code": "0-30", "day_from": 0, "day_to": 30, "amount": 1000, "open_item_count": 1 },
+        { "bucket_code": "31-60", "day_from": 31, "day_to": 60, "amount": 0, "open_item_count": 0 },
+        { "bucket_code": "61-90", "day_from": 61, "day_to": 90, "amount": 0, "open_item_count": 0 },
+        { "bucket_code": "91-180", "day_from": 91, "day_to": 180, "amount": 0, "open_item_count": 0 },
+        { "bucket_code": "181-365", "day_from": 181, "day_to": 365, "amount": 0, "open_item_count": 0 },
+        { "bucket_code": "365+", "day_from": 366, "day_to": null, "amount": 0, "open_item_count": 0 }
+      ],
+      "total_base_balance": 1000
+    }
+  ],
+  "total_base_balance": 1000
+}
+```
+
+核销请求：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "open_item_type": "receivable",
+  "settlement_date": "2026-06-30",
+  "counterparty_type": "customer",
+  "counterparty_code": "CUST-SH-001",
+  "payment_entry_id": "entry_payment_001",
+  "settled_by": "finance-manager",
+  "items": [
+    {
+      "open_item_id": "open_item_...",
+      "source_line_id": "line_...",
+      "settled_base_amount": 500
+    }
+  ]
+}
+```
+
+应收未清项来自 `1122/1221` 且必须挂载客户维度；应付未清项来自 `2202/2241` 且必须挂载供应商维度。未清项和余额只基于正式已过账分录行、期间参数和核销记录生成，不从凭证摘要、报表快照或样例数据反推。账龄桶固定为 `0-30`、`31-60`、`61-90`、`91-180`、`181-365` 和 `365+`。
+
+核销只追加 `CounterpartySettlement` 记录，支持部分核销和同一往来对象内多未清项核销，不改写历史正式分录；已关闭期间新增核销返回 `409`。坏账准备通过期间结账动作 `bad_debt_provision` 生成，当前默认规则为 `91-180` 计提 5%、`181-365` 计提 10%、`365+` 计提 50%，分录方向为借 `6701`、贷 `1231`。
+
+权限点：
+
+- `receivable_payable.read`
+- `receivable_payable.settle`
+- `receivable_payable.bad_debt`
+
+审计事件：
+
+- `receivable_payable.balance.read`
+- `receivable_payable.aging.read`
+- `receivable_payable.settle`
+- `receivable_payable.bad_debt.provision`
+
+当前往来 API 不覆盖销售订单、采购订单、合同台账、银行流水自动抓取、自动付款、信用额度审批、完整催收流程、预收预付复杂重分类或复杂坏账组合模型。
+
 ## 正式会计核算引擎一期
 
 ```text
@@ -355,6 +464,7 @@ POST /api/v1/period-close/reopen
     "payroll_accrual",
     "tax_accrual",
     "fx_revaluation",
+    "bad_debt_provision",
     "profit_loss_carryforward"
   ],
   "tax_accrual_rules": [
@@ -378,8 +488,8 @@ POST /api/v1/period-close/reopen
 ```
 
 生成接口会先运行检查清单，存在阻断项时返回 `409`；`preview=true` 时只返回将要生成的动作结果，不写入正式分录。实际生成时会按来源键幂等处理，同一账套、期间、动作和来源重复执行不会重复过账。
-外币期末重估只生成本位币 CNY 调整分录，原币金额保持不变；损益结转按月结转至 `4103 本年利润`，年结再转入 `4104 利润分配-未分配利润`。
-期间结账接口支持 `X-Actor-Id` 请求头，分别受 `period_close.view`、`period_close.check`、`period_close.generate`、`period_close.close` 和 `period_close.reopen` 权限控制，并记录 `period_close.run_started`、`period_close.runs_viewed`、`period_close.checks_completed`、`period_close.actions_previewed`、`period_close.actions_generated`、`period_close.period_closed` 和 `period_close.period_reopened` 审计日志。
+外币期末重估只生成本位币 CNY 调整分录，原币金额保持不变；坏账准备按往来账龄规则生成借 `6701`、贷 `1231` 的正式分录；损益结转按月结转至 `4103 本年利润`，年结再转入 `4104 利润分配-未分配利润`。
+期间结账接口支持 `X-Actor-Id` 请求头，分别受 `period_close.view`、`period_close.check`、`period_close.generate`、`period_close.close` 和 `period_close.reopen` 权限控制，并记录 `period_close.run_started`、`period_close.runs_viewed`、`period_close.checks_completed`、`period_close.actions_previewed`、`period_close.actions_generated`、`period_close.period_closed` 和 `period_close.period_reopened` 审计日志；坏账准备动作还会记录 `receivable_payable.bad_debt.provision`。
 
 ## 账簿读模型 MVP
 
