@@ -64,6 +64,43 @@ def list_statement_snapshots(account_set_id: str, period: str | None = None) -> 
     return StatementSnapshotListResponse(total=len(items), items=items)
 
 
+def lock_statement_snapshot(snapshot_id: str, locked_by: str) -> StatementSnapshot:
+    snapshot = get_statement_snapshot(snapshot_id)
+    if snapshot.locked:
+        return snapshot
+    locked = snapshot.model_copy(
+        update={
+            "locked": True,
+            "locked_by": locked_by,
+            "locked_at": _now_iso(),
+            "archive_status": "demo_only" if snapshot.source == "sample_finance_data" else "archived",
+        }
+    )
+    _STATEMENT_SNAPSHOTS[snapshot_id] = locked
+    return locked
+
+
+def record_statement_export(
+    snapshot_id: str,
+    export_format: str,
+    filename: str,
+    content_type: str,
+    exported_by: str,
+) -> StatementExportRecord:
+    get_statement_snapshot(snapshot_id)
+    export = StatementExportRecord(
+        export_id=f"stmt_export_{uuid4().hex}",
+        snapshot_id=snapshot_id,
+        export_format=export_format,
+        filename=filename,
+        content_type=content_type,
+        exported_by=exported_by,
+        exported_at=_now_iso(),
+    )
+    _STATEMENT_EXPORTS[export.export_id] = export
+    return export
+
+
 def statement_bundle_hash(bundle: FinancialStatementBundle) -> str:
     payload = bundle.model_dump(mode="json")
     normalized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
