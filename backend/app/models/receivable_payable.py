@@ -129,3 +129,27 @@ class CounterpartySettlement(BaseModel):
     total_settled_base_amount: Decimal
     settled_by: str
     created_at: str
+
+
+class BadDebtProvisionRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    bucket_rates: dict[AgingBucketCode, Decimal] = Field(default_factory=dict)
+    debit_account_code: str = "6701"
+    debit_account_name: str = "资产减值损失"
+    credit_account_code: str = "1231"
+    credit_account_name: str = "坏账准备"
+
+
+class BadDebtProvisionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    period: str
+    as_of_date: str
+    required_provision_amount: Decimal
+    debit_account_code: str
+    debit_account_name: str
+    credit_account_code: str
+    credit_account_name: str
+    evidence: list[dict]

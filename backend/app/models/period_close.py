@@ -13,6 +13,7 @@ PeriodCloseActionType = Literal[
     "fx_revaluation",
     "profit_loss_carryforward",
     "year_end_profit_distribution",
+    "bad_debt_provision",
 ]
 
 

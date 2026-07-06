@@ -6,7 +6,11 @@ from app.models.accounting import (
     JournalLineCreate,
     JournalLineDimension,
 )
-from app.models.receivable_payable import CounterpartySettlementCreate, CounterpartySettlementItemCreate
+from app.models.receivable_payable import (
+    BadDebtProvisionRule,
+    CounterpartySettlementCreate,
+    CounterpartySettlementItemCreate,
+)
 from app.services.accounting_service import (
     list_counterparty_journal_lines,
     post_journal_entry,
@@ -17,6 +21,7 @@ from app.services.receivable_payable_service import (
     build_aging_report,
     build_counterparty_balances,
     build_counterparty_open_items,
+    calculate_bad_debt_provision,
     create_counterparty_settlement,
     reset_receivable_payable_store,
 )
@@ -234,3 +239,45 @@ def test_create_partial_receivable_settlement_reduces_open_amount():
     assert settlement.total_settled_base_amount == Decimal("600.00")
     assert items_after[0].open_base_amount == Decimal("460.00")
     assert items_after[0].status == "partial"
+
+
+def test_calculate_bad_debt_provision_from_aging_buckets():
+    _seed_customer()
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2025-12-31",
+            source_type="voucher_center",
+            source_id="voucher-ar-bad-debt-001",
+            description="确认客户应收",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+            ],
+        )
+    )
+
+    result = calculate_bad_debt_provision(
+        account_set_id="default",
+        period="2026-06",
+        as_of_date="2026-06-30",
+        rule=BadDebtProvisionRule(bucket_rates={"181-365": Decimal("0.10"), "365+": Decimal("0.50")}),
+    )
+
+    assert result.required_provision_amount == Decimal("100.00")
+    assert result.debit_account_code == "6701"
+    assert result.credit_account_code == "1231"

@@ -9,6 +9,8 @@ from fastapi import HTTPException
 
 from app.models.receivable_payable import (
     AgingBucket,
+    BadDebtProvisionResult,
+    BadDebtProvisionRule,
     CounterpartyAgingItem,
     CounterpartyAgingResponse,
     CounterpartyBalanceItem,
@@ -209,6 +211,42 @@ def create_counterparty_settlement(payload: CounterpartySettlementCreate) -> Cou
     )
     _SETTLEMENTS[settlement.settlement_id] = settlement.model_dump()
     return settlement
+
+
+def calculate_bad_debt_provision(
+    account_set_id: str,
+    period: str,
+    as_of_date: str,
+    rule: BadDebtProvisionRule,
+) -> BadDebtProvisionResult:
+    aging = build_aging_report(account_set_id, period, "receivable", as_of_date)
+    provision_amount = ZERO
+    evidence: list[dict] = []
+    for bucket in aging.buckets:
+        rate = rule.bucket_rates.get(bucket.bucket_code, ZERO)
+        amount = (bucket.amount * rate).quantize(Decimal("0.01"))
+        if amount <= ZERO:
+            continue
+        evidence.append(
+            {
+                "bucket_code": bucket.bucket_code,
+                "bucket_amount": bucket.amount,
+                "rate": rate,
+                "provision_amount": amount,
+            }
+        )
+        provision_amount += amount
+    return BadDebtProvisionResult(
+        account_set_id=account_set_id,
+        period=period,
+        as_of_date=as_of_date,
+        required_provision_amount=provision_amount,
+        debit_account_code=rule.debit_account_code,
+        debit_account_name=rule.debit_account_name,
+        credit_account_code=rule.credit_account_code,
+        credit_account_name=rule.credit_account_name,
+        evidence=evidence,
+    )
 
 
 def _signed_open_amount(direction: str, amount: Decimal, normal_direction: str) -> Decimal:

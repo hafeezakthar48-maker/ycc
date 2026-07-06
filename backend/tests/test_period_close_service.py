@@ -1,10 +1,16 @@
 from decimal import Decimal
 
-from app.models.accounting import ExchangeRateCreate, JournalEntryCreate, JournalLineCreate
+from app.models.accounting import AuxiliaryDimensionCreate, ExchangeRateCreate, JournalEntryCreate, JournalLineCreate, JournalLineDimension
 from app.models.fixed_asset import FixedAssetCreateRequest
 from app.models.payroll import PayrollCalculateRequest, PayrollEmployeeInput
 from app.models.period_close import PeriodCloseRunCreate, TaxAccrualRule
-from app.services.accounting_service import list_journal_entries, post_journal_entry, reset_accounting_store, upsert_exchange_rate
+from app.services.accounting_service import (
+    list_journal_entries,
+    post_journal_entry,
+    reset_accounting_store,
+    upsert_auxiliary_dimension,
+    upsert_exchange_rate,
+)
 from app.services.fixed_asset_service import create_fixed_asset, reset_fixed_asset_store
 from app.services.payroll_service import calculate_payroll, reset_payroll_store
 from app.services.period_close_service import (
@@ -16,6 +22,7 @@ from app.services.period_close_service import (
     set_tax_accrual_rules,
     start_period_close_run,
 )
+from app.services.receivable_payable_service import reset_receivable_payable_store
 
 
 def setup_function():
@@ -23,6 +30,7 @@ def setup_function():
     reset_fixed_asset_store()
     reset_payroll_store()
     reset_period_close_store()
+    reset_receivable_payable_store()
 
 
 def test_start_period_close_run_records_scope_and_status():
@@ -320,3 +328,61 @@ def test_year_end_profit_distribution_transfers_current_year_profit():
     assert results[0].amount == Decimal("700.00")
     assert any(line.account_code == "4103" and line.direction == "debit" for line in entry.lines)
     assert any(line.account_code == "4104" and line.direction == "credit" for line in entry.lines)
+
+
+def test_bad_debt_provision_action_posts_allowance_entry_and_is_idempotent():
+    upsert_auxiliary_dimension(
+        AuxiliaryDimensionCreate(
+            account_set_id="default",
+            dimension_type="customer",
+            dimension_code="CUST-SH-001",
+            dimension_name="上海客户",
+        )
+    )
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2025-12-31",
+            source_type="manual_test",
+            source_id="bad-debt-aging-source",
+            description="跨期应收确认",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+            ],
+        )
+    )
+
+    first = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["bad_debt_provision"],
+        generated_by="finance-user",
+    )
+    second = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["bad_debt_provision"],
+        generated_by="finance-user",
+    )
+    entry = next(entry for entry in list_journal_entries("default", "2026-06").entries if entry.source_type == "bad_debt_provision")
+
+    assert first[0].status == "generated"
+    assert first[0].amount == Decimal("100.00")
+    assert second[0].status == "existing"
+    assert any(line.account_code == "6701" and line.direction == "debit" for line in entry.lines)
+    assert any(line.account_code == "1231" and line.direction == "credit" for line in entry.lines)

@@ -172,6 +172,8 @@ def generate_period_close_actions(
             results.append(_generate_profit_loss_carryforward(account_set_id, period, generated_by))
         elif action == "year_end_profit_distribution":
             results.append(_generate_year_end_profit_distribution(account_set_id, period, generated_by))
+        elif action == "bad_debt_provision":
+            results.append(_generate_bad_debt_provision(account_set_id, period, generated_by))
         else:
             raise HTTPException(status_code=422, detail=f"不支持的期末动作：{action}")
     return results
@@ -394,6 +396,44 @@ def _generate_year_end_profit_distribution(account_set_id: str, period: str, gen
         credit_rows=credit_rows,
     )
     return _action_result(source_type, "generated", [entry], amount, "已生成年终利润分配分录。")
+
+
+def _generate_bad_debt_provision(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:
+    source_type = "bad_debt_provision"
+    source_id = f"{source_type}:{account_set_id}:{period}"
+    existing = _existing_entries(account_set_id, period, source_type, source_id)
+    if existing:
+        return _action_result(source_type, "existing", existing, _entry_amount(existing), "坏账准备分录已存在。")
+
+    from app.models.receivable_payable import BadDebtProvisionRule
+    from app.services.receivable_payable_service import calculate_bad_debt_provision
+
+    provision = calculate_bad_debt_provision(
+        account_set_id=account_set_id,
+        period=period,
+        as_of_date=_period_end_date(period),
+        rule=BadDebtProvisionRule(
+            bucket_rates={
+                "91-180": Decimal("0.05"),
+                "181-365": Decimal("0.10"),
+                "365+": Decimal("0.50"),
+            }
+        ),
+    )
+    amount = _money(provision.required_provision_amount)
+    if amount <= Decimal("0.00"):
+        return _action_result(source_type, "skipped", [], amount, "本期无需计提坏账准备。")
+    entry = _post_grouped_entry(
+        account_set_id=account_set_id,
+        period=period,
+        source_type=source_type,
+        source_id=source_id,
+        description=f"{period} 坏账准备计提",
+        generated_by=generated_by,
+        debit_rows=[(provision.debit_account_code, amount, provision.debit_account_name)],
+        credit_rows=[(provision.credit_account_code, amount, provision.credit_account_name)],
+    )
+    return _action_result(source_type, "generated", [entry], amount, "已生成坏账准备分录。")
 
 
 def _post_grouped_entry(
