@@ -27,6 +27,9 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
         "fixed_asset.depreciate",
         "payroll.calculate",
         "statement.generate",
+        "statement.validate",
+        "statement.mapping.view",
+        "statement.mapping.manage",
         "system.audit.read",
         "platform.client.manage",
     }.issubset(permission_codes)
@@ -41,6 +44,9 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
     assert "fixed_asset.depreciate" in role_by_id["finance_manager"]["permission_codes"]
     assert "payroll.calculate" in role_by_id["finance_manager"]["permission_codes"]
     assert "statement.generate" in role_by_id["finance_manager"]["permission_codes"]
+    assert "statement.validate" in role_by_id["finance_manager"]["permission_codes"]
+    assert "statement.mapping.view" in role_by_id["finance_manager"]["permission_codes"]
+    assert "statement.mapping.manage" in role_by_id["finance_manager"]["permission_codes"]
     assert "ledger.read" in role_by_id["auditor"]["permission_codes"]
     assert "platform.client.manage" in role_by_id["api_integrator"]["permission_codes"]
 

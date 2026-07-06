@@ -59,6 +59,32 @@ def test_financial_statement_api_rejects_unauthorized_actor_and_records_denied_a
     assert log["metadata"]["permission_code"] == "statement.generate"
 
 
+def test_statement_mapping_api_returns_default_rules():
+    response = client.get(
+        "/api/v1/financial-statements/mapping-sets/default",
+        headers={"X-Actor-Id": "u-finance-manager"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["mapping_set"]["mapping_set_name"] == "中国企业会计准则通用报表映射"
+    assert any(rule["line_code"] == "BS-CASH" for rule in payload["rules"])
+
+
+def test_statement_generate_returns_trace_and_validation_items():
+    response = client.post(
+        "/api/v1/financial-statements/generate",
+        headers={"X-Actor-Id": "u-finance-manager"},
+        json={"period": "2026-06", "account_set_id": "default", "include_trace": True},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "mapping_set_id" in payload
+    assert "trace_items" in payload
+    assert "validation_items" in payload
+
+
 def test_finance_center_registry_declares_financial_statement_api():
     response = client.get("/api/v1/modules/finance-center")
 
@@ -66,3 +92,5 @@ def test_finance_center_registry_declares_financial_statement_api():
     module = response.json()
     assert "/api/v1/financial-statements" in module["api_prefixes"]
     assert "statement.generate" in module["audit_events"]
+    assert "statement.mapping.view" in module["audit_events"]
+    assert "statement.mapping.update" in module["audit_events"]

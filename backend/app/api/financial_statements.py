@@ -3,6 +3,7 @@ from fastapi import APIRouter, Header, HTTPException
 from app.models.financial_statement import FinancialStatementGenerateRequest
 from app.models.system_admin import AuditLogCreateRequest
 from app.services.financial_statement_service import generate_financial_statements
+from app.services.statement_mapping_service import get_default_statement_mapping_set, list_statement_mapping_rules
 from app.services.system_admin_service import authorize, record_audit_log
 
 
@@ -16,8 +17,9 @@ def generate_financial_statement_bundle(
 ):
     event = "statement.generate"
     target_id = f"financial-statements:{request.account_set_id}:{request.period}"
-    _require_statement_permission(
+    _require_permission(
         actor_id=x_actor_id,
+        permission_code="statement.generate",
         event=event,
         target_id=target_id,
         metadata={
@@ -48,6 +50,29 @@ def generate_financial_statement_bundle(
     return result
 
 
+@router.get("/mapping-sets/default")
+def get_default_mapping_set(account_set_id: str = "default", x_actor_id: str = Header(default="system")):
+    event = "statement.mapping.view"
+    target_id = f"statement-mapping:{account_set_id}:default"
+    metadata = {"account_set_id": account_set_id}
+    _require_permission(
+        actor_id=x_actor_id,
+        permission_code="statement.mapping.view",
+        event=event,
+        target_id=target_id,
+        metadata=metadata,
+    )
+    mapping_set = get_default_statement_mapping_set(account_set_id)
+    rules = list_statement_mapping_rules(mapping_set.mapping_set_id)
+    _record_statement_audit(
+        actor_id=x_actor_id,
+        event=event,
+        target_id=target_id,
+        metadata={**metadata, "rule_count": len(rules)},
+    )
+    return {"mapping_set": mapping_set, "rules": rules}
+
+
 def _record_statement_audit(
     actor_id: str,
     event: str,
@@ -67,8 +92,9 @@ def _record_statement_audit(
     )
 
 
-def _require_statement_permission(
+def _require_permission(
     actor_id: str,
+    permission_code: str,
     event: str,
     target_id: str,
     metadata: dict[str, str | int | float | bool | None],
@@ -76,7 +102,6 @@ def _require_statement_permission(
     if actor_id == "system":
         return
 
-    permission_code = "statement.generate"
     decision = authorize(actor_id, permission_code)
     if decision.allowed:
         return
