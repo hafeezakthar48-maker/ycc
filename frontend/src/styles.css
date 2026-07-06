@@ -1620,6 +1620,24 @@ button:disabled {
   min-width: 900px;
 }
 
+.fixed-asset-accounting-table {
+  min-width: 1080px;
+}
+
+.fixed-asset-accounting-table td {
+  vertical-align: top;
+}
+
+.fixed-asset-accounting-table td:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.fixed-asset-accounting-table td:first-child span {
+  color: #566274;
+  font-size: 12px;
+}
+
 .fixed-asset-status {
   display: inline-flex;
   min-width: 64px;

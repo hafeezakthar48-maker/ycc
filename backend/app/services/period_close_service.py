@@ -195,30 +195,6 @@ def _generate_fixed_asset_depreciation(
         result.total_depreciation,
         "已按固定资产卡片生成正式折旧分录。",
     )
-    source_id = f"{source_type}:{account_set_id}:{period}"
-    existing = _existing_entries(account_set_id, period, source_type, source_id)
-    if existing:
-        return _action_result(source_type, "existing", existing, _entry_amount(existing), "固定资产折旧分录已存在。")
-
-    from app.services.fixed_asset_service import get_period_depreciation_summary, run_monthly_depreciation
-
-    rows = get_period_depreciation_summary(account_set_id, period)
-    amount = _money(sum((row["amount"] for row in rows), Decimal("0.00")))
-    if amount <= Decimal("0.00"):
-        return _action_result(source_type, "skipped", [], amount, "本期间没有需要计提折旧的固定资产。")
-
-    run_monthly_depreciation(period, account_set_id, operator=generated_by)
-    entry = _post_grouped_entry(
-        account_set_id=account_set_id,
-        period=period,
-        source_type=source_type,
-        source_id=source_id,
-        description=f"{period} 固定资产折旧计提",
-        generated_by=generated_by,
-        debit_rows=[(row["debit_account_code"], row["amount"], f"{row['asset_code']} 折旧") for row in rows],
-        credit_rows=[(row["credit_account_code"], row["amount"], f"{row['asset_code']} 累计折旧") for row in rows],
-    )
-    return _action_result(source_type, "generated", [entry], amount, "已生成固定资产折旧计提分录。")
 
 
 def _generate_payroll_accrual(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:

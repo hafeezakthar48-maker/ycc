@@ -17,7 +17,8 @@ import type {
   ExchangeRateCreateRequest,
   ExchangeRateListResponse,
   ExchangeRateRecord,
-  JournalEntryListResponse
+  JournalEntryListResponse,
+  JournalEntryRecord
 } from "../types/accounting";
 import type {
   ArchiveCase,
@@ -57,6 +58,15 @@ import type {
   FixedAssetRecord,
   FixedAssetSaleRequest
 } from "../types/fixedAsset";
+import type {
+  FixedAssetAccountingEntryBatch,
+  FixedAssetCapitalizationRequest,
+  FixedAssetDepreciationPostRequest,
+  FixedAssetDisposalAccountingResult,
+  FixedAssetDisposalPostRequest,
+  FixedAssetImpairmentPostRequest,
+  FormalAssetAccountingCardListResponse
+} from "../types/fixedAssetAccounting";
 import type { HomeDashboard } from "../types/homeDashboard";
 import type { InvoiceOcrResponse } from "../types/invoiceOcr";
 import type {
@@ -811,6 +821,80 @@ export function sellFixedAsset(
 ): Promise<FixedAssetRecord> {
   return mutateFixedAssetJson<FixedAssetRecord>(
     `/api/v1/fixed-assets/${encodeURIComponent(assetId)}/sell`,
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchFixedAssetAccountingCards(
+  accountSetId = "default",
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<FormalAssetAccountingCardListResponse> {
+  return requestFixedAssetJson<FormalAssetAccountingCardListResponse>(
+    `/api/v1/fixed-asset-accounting/cards?account_set_id=${encodeURIComponent(accountSetId)}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function capitalizeFixedAsset(
+  request: FixedAssetCapitalizationRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<JournalEntryRecord> {
+  return mutateFixedAssetJson<JournalEntryRecord>(
+    "/api/v1/fixed-asset-accounting/capitalize",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function postFixedAssetDepreciation(
+  request: FixedAssetDepreciationPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<FixedAssetAccountingEntryBatch> {
+  return mutateFixedAssetJson<FixedAssetAccountingEntryBatch>(
+    "/api/v1/fixed-asset-accounting/depreciation",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function recordFixedAssetImpairment(
+  request: FixedAssetImpairmentPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<JournalEntryRecord> {
+  return mutateFixedAssetJson<JournalEntryRecord>(
+    "/api/v1/fixed-asset-accounting/impairment",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function disposeFixedAssetFormally(
+  request: FixedAssetDisposalPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<FixedAssetDisposalAccountingResult> {
+  return mutateFixedAssetJson<FixedAssetDisposalAccountingResult>(
+    "/api/v1/fixed-asset-accounting/disposal",
     request,
     apiBase,
     fetcher,

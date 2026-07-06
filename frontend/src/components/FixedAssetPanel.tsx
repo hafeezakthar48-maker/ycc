@@ -1,12 +1,17 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  capitalizeFixedAsset,
   createFixedAsset,
   disposeFixedAsset,
   fetchAccountSets,
+  fetchFixedAssetAccountingCards,
   fetchFixedAssets,
   inventoryFixedAsset,
+  postFixedAssetDepreciation,
+  recordFixedAssetImpairment,
   runMonthlyDepreciation,
-  sellFixedAsset
+  sellFixedAsset,
+  disposeFixedAssetFormally
 } from "../services/dashboardApi";
 import type {
   FixedAssetCreateRequest,
@@ -15,6 +20,7 @@ import type {
   FixedAssetSummary,
   MoneyValue
 } from "../types/fixedAsset";
+import type { FormalAssetAccountingCard } from "../types/fixedAssetAccounting";
 import type { AccountSetItem } from "../types/ledger";
 
 interface FixedAssetPanelProps {
@@ -71,6 +77,21 @@ function inventoryLabel(asset: FixedAssetRecord) {
   return asset.inventory_status === "checked" ? "已盘点" : "未盘点";
 }
 
+function formalStatusLabel(card: FormalAssetAccountingCard | null | undefined) {
+  if (!card) {
+    return "未入账";
+  }
+  const labels: Record<string, string> = {
+    not_capitalized: "未入账",
+    capitalized: "已入账",
+    depreciating: "折旧中",
+    impaired: "已减值",
+    disposed: "已处置",
+    sold: "已出售"
+  };
+  return labels[card.formal_accounting_status] ?? card.formal_accounting_status;
+}
+
 function periodEndDate(period: string) {
   const [year, month] = period.split("-").map(Number);
   const date = new Date(year, month, 0);
@@ -79,6 +100,7 @@ function periodEndDate(period: string) {
 
 export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
   const [assets, setAssets] = useState<FixedAssetRecord[]>([]);
+  const [formalCards, setFormalCards] = useState<FormalAssetAccountingCard[]>([]);
   const [summary, setSummary] = useState<FixedAssetSummary>(emptySummary);
   const [accountSets, setAccountSets] = useState<AccountSetItem[]>([]);
   const [selectedAccountSetId, setSelectedAccountSetId] = useState("default");
@@ -86,6 +108,7 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
   const [form, setForm] = useState<FixedAssetCreateRequest>(defaultAsset);
   const [inventoryForm, setInventoryForm] = useState<FixedAssetInventoryRequest>(defaultInventory);
   const [lastDepreciationMessage, setLastDepreciationMessage] = useState<string | null>(null);
+  const [lastFormalAccountingMessage, setLastFormalAccountingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
@@ -93,14 +116,21 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
     () => assets.find((asset) => asset.id === selectedAssetId) ?? assets[0] ?? null,
     [assets, selectedAssetId]
   );
+  const formalCardByAssetId = useMemo(
+    () => new Map(formalCards.map((card) => [card.asset_id, card])),
+    [formalCards]
+  );
+  const selectedFormalCard = selectedAsset ? formalCardByAssetId.get(selectedAsset.id) ?? null : null;
   const selectedAccountSet = accountSets.find((accountSet) => accountSet.id === selectedAccountSetId) ?? accountSets[0] ?? null;
 
   async function reload(nextSelectedId = selectedAssetId) {
-    const [assetPayload, accountSetPayload] = await Promise.all([
+    const [assetPayload, formalPayload, accountSetPayload] = await Promise.all([
       fetchFixedAssets(selectedAccountSetId),
+      fetchFixedAssetAccountingCards(selectedAccountSetId).catch(() => ({ account_set_id: selectedAccountSetId, cards: [] })),
       fetchAccountSets().catch(() => ({ account_sets: [] as AccountSetItem[] }))
     ]);
     setAssets(assetPayload.assets);
+    setFormalCards(formalPayload.cards);
     setSummary(assetPayload.summary);
     setAccountSets(accountSetPayload.account_sets);
     if (nextSelectedId && assetPayload.assets.some((asset) => asset.id === nextSelectedId)) {
@@ -162,6 +192,20 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
     }
   }
 
+  async function runFormalAction(action: () => Promise<unknown>, successMessage: string, nextSelectedId = selectedAssetId) {
+    setIsBusy(true);
+    setError(null);
+    try {
+      await action();
+      setLastFormalAccountingMessage(successMessage);
+      await reload(nextSelectedId);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "固定资产正式核算失败");
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   function handleCreate(event: FormEvent) {
     event.preventDefault();
     runAction(() => createFixedAsset({ ...form, account_set_id: selectedAccountSetId }));
@@ -181,6 +225,71 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
       .finally(() => {
         setIsBusy(false);
       });
+  }
+
+  function handleFormalCapitalization() {
+    if (!selectedAsset) {
+      setError("请先选择要正式入账的固定资产。");
+      return;
+    }
+    runFormalAction(
+      () => capitalizeFixedAsset({
+        account_set_id: selectedAccountSetId,
+        asset_id: selectedAsset.id,
+        period: selectedAsset.acquisition_date.slice(0, 7),
+        credit_account_code: "2202"
+      }),
+      `${selectedAsset.asset_code} 已生成资本化分录`,
+      selectedAsset.id
+    );
+  }
+
+  function handleFormalDepreciation() {
+    runFormalAction(
+      () => postFixedAssetDepreciation({ account_set_id: selectedAccountSetId, period }),
+      `${period} 已生成正式折旧分录`,
+      selectedAssetId
+    );
+  }
+
+  function handleImpairment() {
+    if (!selectedAsset) {
+      setError("请先选择要计提减值的固定资产。");
+      return;
+    }
+    const impairmentAmount = Math.min(Number(selectedAsset.net_book_value), Number(selectedAsset.monthly_depreciation));
+    if (impairmentAmount <= 0) {
+      setError("当前资产没有可计提的减值金额。");
+      return;
+    }
+    runFormalAction(
+      () => recordFixedAssetImpairment({
+        account_set_id: selectedAccountSetId,
+        asset_id: selectedAsset.id,
+        period,
+        amount: impairmentAmount
+      }),
+      `${selectedAsset.asset_code} 已生成减值分录`,
+      selectedAsset.id
+    );
+  }
+
+  function handleFormalDisposal() {
+    if (!selectedAsset) {
+      setError("请先选择要正式处置的固定资产。");
+      return;
+    }
+    runFormalAction(
+      () => disposeFixedAssetFormally({
+        account_set_id: selectedAccountSetId,
+        asset_id: selectedAsset.id,
+        period,
+        proceeds_amount: selectedAsset.net_book_value,
+        disposal_date: periodEndDate(period)
+      }),
+      `${selectedAsset.asset_code} 已生成正式处置分录`,
+      selectedAsset.id
+    );
   }
 
   function handleInventory() {
@@ -229,6 +338,7 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
           <span>{selectedAccountSet?.name ?? "默认账套"}</span>
           <span>{summary.active_count} 项在用</span>
           <span>{lastDepreciationMessage ?? `${period} 折旧`}</span>
+          <span>{lastFormalAccountingMessage ?? "正式核算"}</span>
         </div>
       </div>
 
@@ -249,6 +359,9 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
         </label>
         <button type="button" onClick={handleDepreciation} disabled={isBusy}>
           计提本月折旧
+        </button>
+        <button type="button" className="button-secondary" onClick={handleFormalDepreciation} disabled={isBusy}>
+          正式折旧
         </button>
       </div>
 
@@ -286,6 +399,7 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
                   <th>资产</th>
                   <th>类别</th>
                   <th>状态</th>
+                  <th>正式</th>
                   <th>原值</th>
                   <th>累计折旧</th>
                   <th>净值</th>
@@ -307,6 +421,7 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
                     </td>
                     <td>{asset.category}</td>
                     <td><span className={`fixed-asset-status fixed-asset-status--${asset.status}`}>{statusLabel(asset)}</span></td>
+                    <td>{formalStatusLabel(formalCardByAssetId.get(asset.id))}</td>
                     <td>{money(asset.original_cost)}</td>
                     <td>{money(asset.accumulated_depreciation)}</td>
                     <td>{money(asset.net_book_value)}</td>
@@ -314,7 +429,7 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={7}>暂无固定资产</td>
+                    <td colSpan={8}>暂无固定资产</td>
                   </tr>
                 )}
               </tbody>
@@ -335,8 +450,20 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
               <p><span>使用年限</span><strong>{selectedAsset.useful_life_months} 个月</strong></p>
               <p><span>月折旧额</span><strong>{money(selectedAsset.monthly_depreciation)}</strong></p>
               <p><span>上次折旧</span><strong>{selectedAsset.last_depreciated_period ?? "未计提"}</strong></p>
+              <p><span>正式入账</span><strong>{formalStatusLabel(selectedFormalCard)}</strong></p>
+              <p><span>减值准备</span><strong>{money(selectedFormalCard?.impairment_amount)}</strong></p>
+              <p><span>正式净值</span><strong>{money(selectedFormalCard?.net_book_value ?? selectedAsset.net_book_value)}</strong></p>
               <p><span>盘点状态</span><strong>{inventoryLabel(selectedAsset)}</strong></p>
               <div className="fixed-asset-action-row">
+                <button type="button" className="button-secondary" onClick={handleFormalCapitalization} disabled={isBusy || selectedAsset.status !== "active"}>
+                  资本化
+                </button>
+                <button type="button" className="button-secondary" onClick={handleImpairment} disabled={isBusy || selectedAsset.status !== "active"}>
+                  减值
+                </button>
+                <button type="button" className="button-secondary" onClick={handleFormalDisposal} disabled={isBusy || selectedAsset.status !== "active"}>
+                  正式处置
+                </button>
                 <button type="button" className="button-secondary" onClick={handleInventory} disabled={isBusy}>
                   盘点
                 </button>
@@ -353,6 +480,51 @@ export default function FixedAssetPanel({ period }: FixedAssetPanelProps) {
           )}
         </section>
       </div>
+
+      <section className="panel fixed-asset-accounting-panel">
+        <div className="panel-header">
+          <div>
+            <span className="eyebrow">正式核算</span>
+            <h3>固定资产入账、折旧、减值与处置</h3>
+          </div>
+          <strong>{formalCards.length}</strong>
+        </div>
+        <div className="voucher-table-wrap">
+          <table className="voucher-table fixed-asset-accounting-table">
+            <thead>
+              <tr>
+                <th>资产</th>
+                <th>正式状态</th>
+                <th>资本化分录</th>
+                <th>最近折旧</th>
+                <th>减值准备</th>
+                <th>正式净值</th>
+                <th>处置分录</th>
+              </tr>
+            </thead>
+            <tbody>
+              {formalCards.length ? formalCards.map((card) => (
+                <tr key={card.asset_id}>
+                  <td>
+                    <strong>{card.asset_code}</strong>
+                    <span>{card.asset_name}</span>
+                  </td>
+                  <td>{formalStatusLabel(card)}</td>
+                  <td>{card.capitalization_entry_id ?? "未生成"}</td>
+                  <td>{card.last_depreciated_period ?? "未计提"}</td>
+                  <td>{money(card.impairment_amount)}</td>
+                  <td>{money(card.net_book_value)}</td>
+                  <td>{card.disposal_entry_ids.length ? card.disposal_entry_ids.join("、") : "未处置"}</td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={7}>暂无正式固定资产核算卡片</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <div className="fixed-asset-forms">
         <form className="fixed-asset-form" onSubmit={handleCreate}>

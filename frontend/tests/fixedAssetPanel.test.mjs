@@ -10,11 +10,18 @@ test("AI财务中心接入固定资产台账面板", async () => {
   assert.match(layout, /FixedAssetPanel/);
   assert.match(panel, /fixed-asset-panel/);
   assert.match(panel, /fetchFixedAssets/);
+  assert.match(panel, /fetchFixedAssetAccountingCards/);
   assert.match(panel, /createFixedAsset/);
   assert.match(panel, /runMonthlyDepreciation/);
+  assert.match(panel, /capitalizeFixedAsset/);
+  assert.match(panel, /postFixedAssetDepreciation/);
+  assert.match(panel, /recordFixedAssetImpairment/);
+  assert.match(panel, /disposeFixedAssetFormally/);
   assert.match(panel, /inventoryFixedAsset/);
   assert.match(panel, /disposeFixedAsset/);
   assert.match(panel, /sellFixedAsset/);
+  assert.match(panel, /formal_accounting_status/);
+  assert.match(panel, /fixed-asset-accounting-panel/);
   assert.match(panel, /fixed-asset-summary-grid/);
   assert.match(panel, /fixed-asset-form/);
 });

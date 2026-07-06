@@ -719,7 +719,75 @@ POST /api/v1/fixed-assets/{asset_id}/sell
 }
 ```
 
-当前固定资产台账是内存 MVP，服务重启后演示资产会重置；折旧、报废、出售和盘点只维护资产生命周期状态，不生成正式固定资产卡片附件、折旧凭证、总账分录或税会差异调整。接口支持 `X-Actor-Id` 请求头，读取、新增、折旧、处置和盘点分别受 `fixed_asset.read`、`fixed_asset.write`、`fixed_asset.depreciate`、`fixed_asset.dispose`、`fixed_asset.inventory` 权限控制，并记录 `fixed_asset.list`、`fixed_asset.create`、`fixed_asset.depreciation.run`、`fixed_asset.inventory`、`fixed_asset.dispose` 和 `fixed_asset.sell` 审计日志。
+当前固定资产台账是内存 MVP，服务重启后演示资产会重置；台账接口只维护资产生命周期状态，正式资本化、正式折旧、减值和处置分录由固定资产正式核算 Phase 10 接口生成。台账接口支持 `X-Actor-Id` 请求头，读取、新增、折旧、处置和盘点分别受 `fixed_asset.read`、`fixed_asset.write`、`fixed_asset.depreciate`、`fixed_asset.dispose`、`fixed_asset.inventory` 权限控制，并记录 `fixed_asset.list`、`fixed_asset.create`、`fixed_asset.depreciation.run`、`fixed_asset.inventory`、`fixed_asset.dispose` 和 `fixed_asset.sell` 审计日志。
+
+### 固定资产正式核算 Phase 10
+
+```text
+GET /api/v1/fixed-asset-accounting/cards?account_set_id=default
+POST /api/v1/fixed-asset-accounting/capitalize
+POST /api/v1/fixed-asset-accounting/depreciation
+POST /api/v1/fixed-asset-accounting/impairment
+POST /api/v1/fixed-asset-accounting/disposal
+```
+
+资本化请求：
+
+```json
+{
+  "account_set_id": "default",
+  "asset_id": "asset-001",
+  "period": "2026-06",
+  "credit_account_code": "2202"
+}
+```
+
+折旧正式过账请求：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06"
+}
+```
+
+减值请求：
+
+```json
+{
+  "account_set_id": "default",
+  "asset_id": "asset-001",
+  "period": "2026-06",
+  "amount": "5000.00"
+}
+```
+
+正式处置请求：
+
+```json
+{
+  "account_set_id": "default",
+  "asset_id": "asset-001",
+  "period": "2026-06",
+  "disposal_date": "2026-06-30",
+  "proceeds_amount": "118000.00",
+  "proceeds_account_code": "1002",
+  "reason": "更新换代"
+}
+```
+
+正式卡片接口返回资产台账字段、正式核算状态、资本化分录 ID、最近折旧分录 ID、减值准备金额、处置分录 ID 和正式净值。正式核算分录使用 `asset` 辅助核算维度追溯资产，核心科目包括 `1601 固定资产`、`1602 累计折旧`、`1603 固定资产减值准备`、`1606 固定资产清理`、`6602 管理费用`、`6701 资产减值损失`、`6301 营业外收入`、`6711 营业外支出` 以及处置或资本化对方科目。
+
+正式分录来源键：
+
+```text
+fixed_asset_capitalization:{account_set_id}:{asset_id}
+fixed_asset_depreciation:{account_set_id}:{period}:{asset_id}
+fixed_asset_impairment:{account_set_id}:{period}:{asset_id}
+fixed_asset_disposal:{account_set_id}:{period}:{asset_id}
+```
+
+接口支持 `X-Actor-Id` 请求头。读取卡片受 `fixed_asset_accounting.read` 控制，资本化和折旧受 `fixed_asset_accounting.post` 控制，减值受 `fixed_asset_accounting.impair` 控制，处置受 `fixed_asset_accounting.dispose` 控制；成功或拒绝都会记录 `fixed_asset_accounting.card.read`、`fixed_asset_accounting.capitalize`、`fixed_asset_accounting.depreciation.post`、`fixed_asset_accounting.impairment.post`、`fixed_asset_accounting.disposal.post` 审计事件。已关闭期间拒绝新增正式资本化、折旧、减值和处置分录；同一来源键重复调用返回既有正式分录，避免重复入账。当前不提供固定资产卡片附件、复杂融资租赁、资产评估接口、税会差异自动申报、集团跨法人调拨或完整资产清查审批流程。
 
 ## 工资管理 MVP
 
