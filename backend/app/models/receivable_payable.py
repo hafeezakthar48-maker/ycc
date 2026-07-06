@@ -58,3 +58,35 @@ class CounterpartyBalanceResponse(BaseModel):
     total_base_balance: Decimal
     item_count: int
     items: list[CounterpartyBalanceItem]
+
+
+class AgingBucket(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    bucket_code: AgingBucketCode
+    day_from: int
+    day_to: int | None
+    amount: Decimal
+    open_item_count: int
+
+
+class CounterpartyAgingItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    counterparty_type: CounterpartyType
+    counterparty_code: str
+    counterparty_name: str
+    buckets: list[AgingBucket]
+    total_base_balance: Decimal
+
+
+class CounterpartyAgingResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    period: str
+    as_of_date: str
+    open_item_type: OpenItemType
+    buckets: list[AgingBucket]
+    items: list[CounterpartyAgingItem]
+    total_base_balance: Decimal

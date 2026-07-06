@@ -13,6 +13,7 @@ from app.services.accounting_service import (
     upsert_auxiliary_dimension,
 )
 from app.services.receivable_payable_service import (
+    build_aging_report,
     build_counterparty_balances,
     build_counterparty_open_items,
     reset_receivable_payable_store,
@@ -130,3 +131,40 @@ def test_build_receivable_open_items_from_formal_ar_lines():
     assert items[0].open_base_amount == Decimal("1060.00")
     assert balances.total_base_balance == Decimal("1060.00")
     assert balances.items[0].open_item_count == 1
+
+
+def test_build_aging_report_places_open_items_into_buckets():
+    _seed_customer()
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2026-04-01",
+            source_type="voucher_center",
+            source_id="voucher-ar-aging-001",
+            description="确认客户应收",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    original_amount=Decimal("1000.00"),
+                    base_amount=Decimal("1000.00"),
+                    dimensions=[JournalLineDimension(dimension_type="customer", dimension_code="CUST-SH-001")],
+                ),
+            ],
+        )
+    )
+
+    report = build_aging_report("default", "2026-06", "receivable", as_of_date="2026-06-30")
+
+    bucket_by_code = {bucket.bucket_code: bucket.amount for bucket in report.buckets}
+    assert bucket_by_code["61-90"] == Decimal("1000.00")
+    assert report.total_base_balance == Decimal("1000.00")
