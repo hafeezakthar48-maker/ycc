@@ -28,6 +28,14 @@ import type {
 } from "../types/financialStatement";
 import type { StatementMappingSetResponse } from "../types/statementMapping";
 import type {
+  StatementExportDownload,
+  StatementExportFormat,
+  StatementSnapshot,
+  StatementSnapshotCreateRequest,
+  StatementSnapshotListResponse,
+  StatementSnapshotLockRequest
+} from "../types/statementArchive";
+import type {
   FixedAssetCreateRequest,
   FixedAssetDepreciationRunRequest,
   FixedAssetDepreciationRunResponse,
@@ -746,6 +754,91 @@ export function fetchDefaultStatementMappingSet(
     }
     return response.json() as Promise<StatementMappingSetResponse>;
   });
+}
+
+export function createStatementSnapshot(
+  request: StatementSnapshotCreateRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<StatementSnapshot> {
+  return mutateFinancialStatementJson<StatementSnapshot>(
+    "/api/v1/financial-statements/snapshots",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function listStatementSnapshots(
+  accountSetId = "default",
+  period: string | null = null,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<StatementSnapshotListResponse> {
+  const query = new URLSearchParams({ account_set_id: accountSetId });
+  if (period) {
+    query.set("period", period);
+  }
+  return fetcher(`${apiBase}/api/v1/financial-statements/snapshots?${query.toString()}`, {
+    headers: { "X-Actor-Id": actorId }
+  }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`报表归档 API 请求失败：${response.status}`);
+    }
+    return response.json() as Promise<StatementSnapshotListResponse>;
+  });
+}
+
+export function lockStatementSnapshot(
+  snapshotId: string,
+  request: StatementSnapshotLockRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<StatementSnapshot> {
+  return mutateFinancialStatementJson<StatementSnapshot>(
+    `/api/v1/financial-statements/snapshots/${encodeURIComponent(snapshotId)}/lock`,
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export async function exportStatementSnapshot(
+  snapshotId: string,
+  exportFormat: StatementExportFormat,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<StatementExportDownload> {
+  const response = await fetcher(
+    `${apiBase}/api/v1/financial-statements/snapshots/${encodeURIComponent(snapshotId)}/export/${exportFormat}`,
+    { headers: { "X-Actor-Id": actorId } }
+  );
+  if (!response.ok) {
+    throw new Error(`报表导出失败：${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `financial-statements.${exportFormat}`;
+
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  return { blob, filename };
 }
 
 export function runPeriodCloseChecks(

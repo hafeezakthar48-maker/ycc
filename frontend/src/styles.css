@@ -1944,6 +1944,12 @@ button:disabled {
   margin-bottom: 14px;
 }
 
+.statement-archive-panel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
 .statement-mapping-meta,
 .statement-tab-list {
   display: flex;
@@ -1982,7 +1988,29 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.statement-archive-actions,
+.statement-archive-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .statement-actions span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #334155;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.statement-archive-actions span {
   min-height: 30px;
   display: inline-flex;
   align-items: center;
@@ -2001,7 +2029,25 @@ button:disabled {
   gap: 12px;
 }
 
+.statement-archive-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .financial-statement-summary-grid article {
+  display: grid;
+  gap: 6px;
+  min-height: 92px;
+  align-content: center;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  padding: 14px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.04);
+}
+
+.statement-archive-summary-grid article {
   display: grid;
   gap: 6px;
   min-height: 92px;
@@ -2019,7 +2065,21 @@ button:disabled {
   font-weight: 800;
 }
 
+.statement-archive-summary-grid span {
+  color: #697586;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .financial-statement-summary-grid strong {
+  color: #172033;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.statement-archive-summary-grid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: #172033;
   font-size: 24px;
   line-height: 1;
@@ -2034,6 +2094,63 @@ button:disabled {
 
 .statement-table {
   min-width: 720px;
+}
+
+.statement-archive-table {
+  min-width: 920px;
+}
+
+.statement-archive-table td {
+  vertical-align: top;
+}
+
+.statement-archive-table td:first-child,
+.statement-archive-table td:nth-child(6) {
+  display: grid;
+  gap: 4px;
+}
+
+.statement-archive-table small {
+  color: #697586;
+  font-size: 12px;
+}
+
+.statement-archive-status,
+.statement-archive-message {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #334155;
+  background: #eef2f7;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.statement-archive-message {
+  width: max-content;
+  color: #0f6b3e;
+  background: #ecfdf3;
+}
+
+.statement-archive-status--passed,
+.statement-archive-status--archived,
+.statement-archive-status--locked {
+  color: #0f6b3e;
+  background: #ecfdf3;
+}
+
+.statement-archive-status--warning,
+.statement-archive-status--draft,
+.statement-archive-status--demo_only {
+  color: #92400e;
+  background: #fff7ed;
+}
+
+.statement-archive-status--failed {
+  color: #b91c1c;
+  background: #fff1f2;
 }
 
 .statement-table tfoot td {
@@ -2732,7 +2849,8 @@ details ul {
   .ledger-summary-grid,
   .fixed-asset-summary-grid,
   .payroll-summary-grid,
-  .financial-statement-summary-grid {
+  .financial-statement-summary-grid,
+  .statement-archive-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2827,6 +2945,7 @@ details ul {
   .fixed-asset-summary-grid,
   .payroll-summary-grid,
   .financial-statement-summary-grid,
+  .statement-archive-summary-grid,
   .voucher-center-form,
   .voucher-form,
   .fixed-asset-form,
@@ -2842,7 +2961,9 @@ details ul {
   .payroll-actions,
   .statement-mapping-meta,
   .statement-tab-list,
-  .statement-actions {
+  .statement-actions,
+  .statement-archive-actions,
+  .statement-archive-row-actions {
     align-items: stretch;
     flex-direction: column;
   }
@@ -2852,7 +2973,9 @@ details ul {
   .fixed-asset-form button,
   .payroll-actions button,
   .statement-tab-list button,
-  .statement-actions button {
+  .statement-actions button,
+  .statement-archive-actions button,
+  .statement-archive-row-actions button {
     width: 100%;
   }
 
