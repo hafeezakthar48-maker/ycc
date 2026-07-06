@@ -70,6 +70,32 @@ def list_fixed_assets(account_set_id: str = "default") -> FixedAssetListResponse
     )
 
 
+def get_period_depreciation_summary(account_set_id: str, period: str) -> list[dict]:
+    _validate_period(period)
+    validate_account_set(account_set_id)
+    rows = []
+    for asset in _assets:
+        if asset.account_set_id != account_set_id or asset.status != "active":
+            continue
+        if asset.last_depreciated_period == period:
+            continue
+        amount = _next_depreciation_amount(asset)
+        if amount <= MONEY_ZERO:
+            continue
+        rows.append(
+            {
+                "asset_id": asset.id,
+                "asset_code": asset.asset_code,
+                "asset_name": asset.name,
+                "amount": _money(amount),
+                "debit_account_code": "6602",
+                "credit_account_code": "1602",
+            }
+        )
+    rows.sort(key=lambda row: (row["asset_code"], row["asset_name"]))
+    return rows
+
+
 def run_monthly_depreciation(period: str, account_set_id: str = "default", operator: str = "财务主管") -> FixedAssetDepreciationRunResponse:
     _validate_period(period)
     validate_account_set(account_set_id)

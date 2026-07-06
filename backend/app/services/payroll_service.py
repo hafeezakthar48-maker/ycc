@@ -27,11 +27,17 @@ MONTHLY_TAX_BRACKETS: tuple[tuple[Decimal, Decimal, Decimal], ...] = (
     (Decimal("999999999.00"), Decimal("0.45"), Decimal("15160.00")),
 )
 
+_payroll_calculations: dict[tuple[str, str], PayrollCalculationResponse] = {}
+
+
+def reset_payroll_store() -> None:
+    _payroll_calculations.clear()
+
 
 def calculate_payroll(request: PayrollCalculateRequest) -> PayrollCalculationResponse:
     validate_account_set(request.account_set_id)
     employees = [_calculate_employee(employee) for employee in request.employees]
-    return PayrollCalculationResponse(
+    response = PayrollCalculationResponse(
         account_set_id=request.account_set_id,
         period=request.period,
         operator=request.operator,
@@ -39,6 +45,27 @@ def calculate_payroll(request: PayrollCalculateRequest) -> PayrollCalculationRes
         employees=employees,
         department_analysis=_department_analysis(employees),
     )
+    _payroll_calculations[(request.account_set_id, request.period)] = response
+    return response
+
+
+def get_period_payroll_accrual_summary(account_set_id: str, period: str) -> list[dict]:
+    validate_account_set(account_set_id)
+    response = _payroll_calculations.get((account_set_id, period))
+    if response is None:
+        return []
+    rows = [
+        {
+            "department": item.department,
+            "amount": _money(item.employer_cost_total),
+            "debit_account_code": "6602",
+            "credit_account_code": "2211",
+        }
+        for item in response.department_analysis
+        if item.employer_cost_total > MONEY_ZERO
+    ]
+    rows.sort(key=lambda row: row["department"])
+    return rows
 
 
 def _calculate_employee(employee: PayrollEmployeeInput) -> PayrollEmployeeResult:

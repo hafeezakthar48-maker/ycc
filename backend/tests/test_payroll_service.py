@@ -3,7 +3,12 @@ from decimal import Decimal
 import pytest
 
 from app.models.payroll import PayrollCalculateRequest, PayrollEmployeeInput
-from app.services.payroll_service import calculate_payroll
+from app.services.payroll_service import calculate_payroll, get_period_payroll_accrual_summary, reset_payroll_store
+
+
+@pytest.fixture(autouse=True)
+def isolated_payroll_store():
+    reset_payroll_store()
 
 
 def _employee(
@@ -88,6 +93,25 @@ def test_payroll_summarizes_totals_and_department_analysis():
     assert finance.net_pay_total == Decimal("15660.00")
     assert operation.employee_count == 1
     assert operation.net_pay_total == Decimal("6552.00")
+
+
+def test_period_payroll_accrual_summary_uses_calculated_period_results():
+    calculate_payroll(
+        PayrollCalculateRequest(
+            account_set_id="default",
+            period="2026-06",
+            employees=[
+                _employee("E001", "张会计", "财务部", "10000.00"),
+                _employee("E002", "李运营", "运营部", "8000.00"),
+            ],
+        )
+    )
+
+    summary = get_period_payroll_accrual_summary("default", "2026-06")
+
+    assert len(summary) == 2
+    assert sum(item["amount"] for item in summary) == Decimal("23994.00")
+    assert {item["department"] for item in summary} == {"财务部", "运营部"}
 
 
 def test_payroll_calculation_is_isolated_by_account_set_metadata():

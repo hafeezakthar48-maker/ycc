@@ -2,20 +2,37 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.models.period_close import PeriodCloseCheckItem, PeriodCloseRun, PeriodCloseRunCreate, PeriodCloseRunListResponse
+from app.models.period_close import (
+    PeriodCloseActionResult,
+    PeriodCloseCheckItem,
+    PeriodCloseRun,
+    PeriodCloseRunCreate,
+    PeriodCloseRunListResponse,
+    TaxAccrualRule,
+)
 from app.services.accounting_period_service import validate_account_set
 
 
 _PERIOD_CLOSE_RUNS: dict[str, PeriodCloseRun] = {}
+_TAX_ACCRUAL_RULES: list[TaxAccrualRule] = []
+MONEY_QUANT = Decimal("0.01")
 
 
 def reset_period_close_store() -> None:
     _PERIOD_CLOSE_RUNS.clear()
+    _TAX_ACCRUAL_RULES.clear()
+
+
+def set_tax_accrual_rules(rules: list[TaxAccrualRule]) -> None:
+    for rule in rules:
+        validate_account_set(rule.account_set_id)
+    _TAX_ACCRUAL_RULES.clear()
+    _TAX_ACCRUAL_RULES.extend(rules)
 
 
 def start_period_close_run(payload: PeriodCloseRunCreate) -> PeriodCloseRun:
@@ -126,6 +143,246 @@ def has_blocking_check(items: list[PeriodCloseCheckItem]) -> bool:
     return any(item.status == "failed" and item.severity == "blocker" for item in items)
 
 
+def generate_period_close_actions(
+    account_set_id: str,
+    period: str,
+    actions: list[str],
+    generated_by: str,
+    force_regenerate: bool = False,
+) -> list[PeriodCloseActionResult]:
+    validate_account_set(account_set_id)
+    if force_regenerate:
+        from app.services.accounting_period_service import is_accounting_period_closed
+
+        if is_accounting_period_closed(period, account_set_id):
+            raise HTTPException(status_code=409, detail="期间已关闭，不能重新生成期末分录。")
+
+    results = []
+    for action in actions:
+        if action == "fixed_asset_depreciation":
+            results.append(_generate_fixed_asset_depreciation(account_set_id, period, generated_by))
+        elif action == "payroll_accrual":
+            results.append(_generate_payroll_accrual(account_set_id, period, generated_by))
+        elif action == "tax_accrual":
+            results.append(_generate_tax_accrual(account_set_id, period, generated_by))
+        else:
+            raise HTTPException(status_code=422, detail=f"不支持的期末动作：{action}")
+    return results
+
+
+def _generate_fixed_asset_depreciation(
+    account_set_id: str,
+    period: str,
+    generated_by: str,
+) -> PeriodCloseActionResult:
+    source_type = "fixed_asset_depreciation"
+    source_id = f"{source_type}:{account_set_id}:{period}"
+    existing = _existing_entries(account_set_id, period, source_type, source_id)
+    if existing:
+        return _action_result(source_type, "existing", existing, _entry_amount(existing), "固定资产折旧分录已存在。")
+
+    from app.services.fixed_asset_service import get_period_depreciation_summary, run_monthly_depreciation
+
+    rows = get_period_depreciation_summary(account_set_id, period)
+    amount = _money(sum((row["amount"] for row in rows), Decimal("0.00")))
+    if amount <= Decimal("0.00"):
+        return _action_result(source_type, "skipped", [], amount, "本期间没有需要计提折旧的固定资产。")
+
+    run_monthly_depreciation(period, account_set_id, operator=generated_by)
+    entry = _post_grouped_entry(
+        account_set_id=account_set_id,
+        period=period,
+        source_type=source_type,
+        source_id=source_id,
+        description=f"{period} 固定资产折旧计提",
+        generated_by=generated_by,
+        debit_rows=[(row["debit_account_code"], row["amount"], f"{row['asset_code']} 折旧") for row in rows],
+        credit_rows=[(row["credit_account_code"], row["amount"], f"{row['asset_code']} 累计折旧") for row in rows],
+    )
+    return _action_result(source_type, "generated", [entry], amount, "已生成固定资产折旧计提分录。")
+
+
+def _generate_payroll_accrual(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:
+    source_type = "payroll_accrual"
+    source_id = f"{source_type}:{account_set_id}:{period}"
+    existing = _existing_entries(account_set_id, period, source_type, source_id)
+    if existing:
+        return _action_result(source_type, "existing", existing, _entry_amount(existing), "工资计提分录已存在。")
+
+    from app.services.payroll_service import get_period_payroll_accrual_summary
+
+    rows = get_period_payroll_accrual_summary(account_set_id, period)
+    amount = _money(sum((row["amount"] for row in rows), Decimal("0.00")))
+    if amount <= Decimal("0.00"):
+        return _action_result(source_type, "skipped", [], amount, "本期间没有可计提的工资摘要。")
+
+    entry = _post_grouped_entry(
+        account_set_id=account_set_id,
+        period=period,
+        source_type=source_type,
+        source_id=source_id,
+        description=f"{period} 工资薪酬计提",
+        generated_by=generated_by,
+        debit_rows=[(row["debit_account_code"], row["amount"], f"{row['department']} 工资成本") for row in rows],
+        credit_rows=[(row["credit_account_code"], row["amount"], f"{row['department']} 应付职工薪酬") for row in rows],
+    )
+    return _action_result(source_type, "generated", [entry], amount, "已生成工资薪酬计提分录。")
+
+
+def _generate_tax_accrual(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:
+    source_type = "tax_accrual"
+    rules = [rule for rule in _TAX_ACCRUAL_RULES if rule.account_set_id == account_set_id]
+    if not rules:
+        return _action_result(source_type, "skipped", [], Decimal("0.00"), "未配置税费计提规则。")
+
+    from app.services.accounting_service import list_journal_entries
+
+    entries = list_journal_entries(account_set_id, period).entries
+    generated_entries = []
+    existing_entries = []
+    total_amount = Decimal("0.00")
+    for rule in rules:
+        source_id = f"{source_type}:{account_set_id}:{period}:{rule.tax_code}"
+        existing = _existing_entries(account_set_id, period, source_type, source_id)
+        if existing:
+            existing_entries.extend(existing)
+            total_amount += _entry_amount(existing)
+            continue
+        tax_base = _tax_base_amount(entries, set(rule.base_account_codes))
+        amount = _money(tax_base * rule.rate)
+        if amount <= Decimal("0.00"):
+            continue
+        entry = _post_grouped_entry(
+            account_set_id=account_set_id,
+            period=period,
+            source_type=source_type,
+            source_id=source_id,
+            description=f"{period} {rule.tax_name}计提",
+            generated_by=generated_by,
+            debit_rows=[(rule.debit_account_code, amount, rule.tax_name)],
+            credit_rows=[(rule.credit_account_code, amount, rule.tax_name)],
+        )
+        generated_entries.append(entry)
+        total_amount += amount
+
+    if generated_entries:
+        return _action_result(source_type, "generated", generated_entries, _money(total_amount), "已生成税费计提分录。")
+    if existing_entries:
+        return _action_result(source_type, "existing", existing_entries, _money(total_amount), "税费计提分录已存在。")
+    return _action_result(source_type, "skipped", [], Decimal("0.00"), "税费计提规则未计算出应计提金额。")
+
+
+def _post_grouped_entry(
+    *,
+    account_set_id: str,
+    period: str,
+    source_type: str,
+    source_id: str,
+    description: str,
+    generated_by: str,
+    debit_rows: list[tuple[str, Decimal, str]],
+    credit_rows: list[tuple[str, Decimal, str]],
+):
+    from app.models.accounting import JournalEntryCreate, JournalLineCreate
+    from app.services.accounting_service import get_chart_of_accounts, post_journal_entry
+
+    account_names = {account.account_code: account.account_name for account in get_chart_of_accounts(account_set_id).accounts}
+    lines = [
+        JournalLineCreate(
+            account_code=account_code,
+            account_name=account_names.get(account_code, account_code),
+            direction=direction,
+            original_amount=amount,
+            exchange_rate=Decimal("1.000000"),
+            base_amount=amount,
+            description=line_description,
+        )
+        for direction, rows in (("debit", _collapse_rows(debit_rows)), ("credit", _collapse_rows(credit_rows)))
+        for account_code, amount, line_description in rows
+    ]
+    return post_journal_entry(
+        JournalEntryCreate(
+            account_set_id=account_set_id,
+            entry_date=_period_end_date(period),
+            source_type=source_type,
+            source_id=source_id,
+            description=description,
+            base_currency="CNY",
+            created_by=generated_by,
+            posted_by=generated_by,
+            lines=lines,
+        )
+    )
+
+
+def _collapse_rows(rows: list[tuple[str, Decimal, str]]) -> list[tuple[str, Decimal, str]]:
+    grouped: dict[str, Decimal] = {}
+    for account_code, amount, _description in rows:
+        grouped[account_code] = grouped.get(account_code, Decimal("0.00")) + amount
+    return [
+        (account_code, _money(amount), "期末结账")
+        for account_code, amount in sorted(grouped.items())
+        if _money(amount) > Decimal("0.00")
+    ]
+
+
+def _existing_entries(account_set_id: str, period: str, source_type: str, source_id: str | None = None):
+    from app.services.accounting_service import list_journal_entries
+
+    return [
+        entry
+        for entry in list_journal_entries(account_set_id, period).entries
+        if entry.status == "posted"
+        and entry.source_type == source_type
+        and (source_id is None or entry.source_id == source_id)
+    ]
+
+
+def _entry_amount(entries) -> Decimal:
+    return _money(
+        sum(
+            (
+                line.base_amount
+                for entry in entries
+                for line in entry.lines
+                if line.direction == "debit"
+            ),
+            Decimal("0.00"),
+        )
+    )
+
+
+def _tax_base_amount(entries, account_codes: set[str]) -> Decimal:
+    amount = Decimal("0.00")
+    for entry in entries:
+        if entry.status != "posted":
+            continue
+        for line in entry.lines:
+            if line.account_code not in account_codes:
+                continue
+            if line.direction == "credit":
+                amount += line.base_amount
+            else:
+                amount -= line.base_amount
+    return max(Decimal("0.00"), _money(amount))
+
+
+def _action_result(
+    action_type: str,
+    status: str,
+    entries,
+    amount: Decimal,
+    message: str,
+) -> PeriodCloseActionResult:
+    return PeriodCloseActionResult(
+        action_type=action_type,  # type: ignore[arg-type]
+        status=status,  # type: ignore[arg-type]
+        journal_entry_ids=[entry.id for entry in entries],
+        amount=_money(amount),
+        message=message,
+    )
+
+
 def _journal_entries_balanced_check(entries) -> PeriodCloseCheckItem:
     unbalanced_ids = []
     for entry in entries:
@@ -217,6 +474,10 @@ def _check_item(
 def _period_end_date(period: str) -> str:
     year, month = (int(part) for part in period.split("-"))
     return f"{period}-{monthrange(year, month)[1]:02d}"
+
+
+def _money(value: Decimal) -> Decimal:
+    return Decimal(value).quantize(MONEY_QUANT, rounding=ROUND_HALF_UP)
 
 
 def _now_iso() -> str:

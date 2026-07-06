@@ -68,3 +68,15 @@ class PeriodCloseActionResult(BaseModel):
     journal_entry_ids: list[str] = Field(default_factory=list)
     amount: Decimal = Decimal("0.00")
     message: str
+
+
+class TaxAccrualRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    tax_code: str = Field(min_length=1, max_length=40)
+    tax_name: str = Field(min_length=1, max_length=80)
+    rate: Decimal = Field(gt=0, max_digits=10, decimal_places=6)
+    base_account_codes: list[str] = Field(min_length=1, max_length=20)
+    debit_account_code: str = Field(min_length=1, max_length=32)
+    credit_account_code: str = Field(default="2221", min_length=1, max_length=32)

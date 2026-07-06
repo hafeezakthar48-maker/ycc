@@ -10,6 +10,7 @@ from app.models.fixed_asset import (
 from app.services.fixed_asset_service import (
     create_fixed_asset,
     dispose_fixed_asset,
+    get_period_depreciation_summary,
     inventory_fixed_asset,
     list_fixed_assets,
     reset_fixed_asset_store,
@@ -75,6 +76,18 @@ def test_monthly_depreciation_is_idempotent_and_updates_net_book_value():
     assert updated.accumulated_depreciation == Decimal("1800.00")
     assert updated.net_book_value == Decimal("118200.00")
     assert updated.last_depreciated_period == "2026-06"
+
+
+def test_period_depreciation_summary_returns_next_depreciation_without_mutating_asset():
+    create_fixed_asset(_asset_request())
+
+    summary = get_period_depreciation_summary("default", "2026-06")
+    asset = list_fixed_assets("default").assets[0]
+
+    assert summary[0]["amount"] == Decimal("1800.00")
+    assert summary[0]["debit_account_code"] == "6602"
+    assert summary[0]["credit_account_code"] == "1602"
+    assert asset.accumulated_depreciation == Decimal("0.00")
 
 
 def test_dispose_and_sell_stop_future_depreciation_and_record_gain_or_loss():
