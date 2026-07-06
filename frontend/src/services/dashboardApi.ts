@@ -2,7 +2,14 @@ import type {
   AuditRequest,
   AuditResponse
 } from "../types/audit";
-import type { AccountListResponse, JournalEntryListResponse } from "../types/accounting";
+import type {
+  AccountListResponse,
+  CurrencyListResponse,
+  ExchangeRateCreateRequest,
+  ExchangeRateListResponse,
+  ExchangeRateRecord,
+  JournalEntryListResponse
+} from "../types/accounting";
 import type {
   AnalyzeResponse,
   DashboardOverview,
@@ -444,6 +451,37 @@ export function fetchJournalEntries(
     fetcher,
     actorId
   );
+}
+
+export function fetchCurrencies(
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<CurrencyListResponse> {
+  return requestLedgerJson<CurrencyListResponse>("/api/v1/accounting/currencies", apiBase, fetcher, actorId);
+}
+
+export function fetchExchangeRates(
+  accountSetId = "default",
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ExchangeRateListResponse> {
+  return requestLedgerJson<ExchangeRateListResponse>(
+    `/api/v1/accounting/exchange-rates?account_set_id=${encodeURIComponent(accountSetId)}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function saveExchangeRate(
+  request: ExchangeRateCreateRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ExchangeRateRecord> {
+  return mutateLedgerJson<ExchangeRateRecord>("/api/v1/accounting/exchange-rates", request, apiBase, fetcher, actorId);
 }
 
 export function fetchAccountSets(

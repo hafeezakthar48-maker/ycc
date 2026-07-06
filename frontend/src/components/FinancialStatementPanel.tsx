@@ -163,6 +163,14 @@ export default function FinancialStatementPanel({ period }: FinancialStatementPa
           <span>生成报表</span>
           <strong>{bundle?.summary.generated_statement_count ?? 0}</strong>
         </article>
+        <article>
+          <span>本位币</span>
+          <strong>{bundle?.summary.base_currency ?? "CNY"}</strong>
+        </article>
+        <article>
+          <span>外币分录</span>
+          <strong>{bundle?.summary.foreign_currency_line_count ?? 0}</strong>
+        </article>
       </div>
 
       <div className="financial-statement-grid">

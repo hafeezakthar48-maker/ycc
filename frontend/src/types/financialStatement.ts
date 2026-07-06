@@ -68,6 +68,8 @@ export interface FinancialStatementGenerationSummary {
   reviewed_voucher_count: number;
   asset_liability_balanced: boolean;
   generated_statement_count: number;
+  base_currency: string;
+  foreign_currency_line_count: number;
 }
 
 export interface FinancialStatementBundle {

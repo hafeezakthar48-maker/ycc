@@ -14,6 +14,42 @@ export interface AccountListResponse {
   accounts: AccountItem[];
 }
 
+export interface CurrencyItem {
+  currency_code: string;
+  currency_name: string;
+  decimal_places: number;
+  is_active: boolean;
+}
+
+export interface CurrencyListResponse {
+  currencies: CurrencyItem[];
+}
+
+export interface ExchangeRateRecord {
+  id: string;
+  account_set_id: string;
+  rate_date: string;
+  source_currency: string;
+  target_currency: string;
+  rate: MoneyValue;
+  source: string;
+  updated_at: string;
+}
+
+export interface ExchangeRateCreateRequest {
+  account_set_id: string;
+  rate_date: string;
+  source_currency: string;
+  target_currency: string;
+  rate: MoneyValue;
+  source?: string;
+}
+
+export interface ExchangeRateListResponse {
+  account_set_id: string;
+  rates: ExchangeRateRecord[];
+}
+
 export interface JournalLineRecord {
   id: string;
   journal_entry_id: string;

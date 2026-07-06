@@ -20,6 +20,9 @@ export interface LedgerDetailLine {
   account_name: string;
   direction: "借" | "贷" | string;
   explanation: string;
+  currency: string;
+  original_amount: MoneyValue;
+  exchange_rate: MoneyValue;
   debit_amount: MoneyValue;
   credit_amount: MoneyValue;
   status: string;

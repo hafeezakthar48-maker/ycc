@@ -18,4 +18,7 @@ test("AI财务中心接入财务报表生成面板", async () => {
   assert.match(panel, /所有者权益变动表/);
   assert.match(panel, /formal_journal_entries/);
   assert.match(panel, /正式分录/);
+  assert.match(panel, /本位币/);
+  assert.match(panel, /外币分录/);
+  assert.match(panel, /foreign_currency_line_count/);
 });

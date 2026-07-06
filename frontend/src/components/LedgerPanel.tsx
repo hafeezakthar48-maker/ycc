@@ -37,6 +37,13 @@ function ledgerSourceLabel(source?: string) {
   return source === "formal_journal_entries" ? "正式分录" : "MVP凭证工作流";
 }
 
+function originalCurrencyText(line: { currency: string; original_amount: MoneyValue; exchange_rate: MoneyValue }) {
+  if (line.currency === "CNY") {
+    return null;
+  }
+  return `${money(line.original_amount)} ${line.currency} @ ${line.exchange_rate}`;
+}
+
 export default function LedgerPanel({ period }: LedgerPanelProps) {
   const [generalLedger, setGeneralLedger] = useState<GeneralLedgerResponse | null>(null);
   const [balanceTable, setBalanceTable] = useState<AccountBalanceTableResponse | null>(null);
@@ -271,8 +278,14 @@ export default function LedgerPanel({ period }: LedgerPanelProps) {
                     <td>{line.voucher_date}</td>
                     <td>{line.voucher_number}</td>
                     <td>{line.summary}</td>
-                    <td>{money(line.debit_amount)}</td>
-                    <td>{money(line.credit_amount)}</td>
+                    <td>
+                      {money(line.debit_amount)}
+                      {originalCurrencyText(line) ? <small>{originalCurrencyText(line)}</small> : null}
+                    </td>
+                    <td>
+                      {money(line.credit_amount)}
+                      {originalCurrencyText(line) ? <small>{originalCurrencyText(line)}</small> : null}
+                    </td>
                   </tr>
                 )) : (
                   <tr>
