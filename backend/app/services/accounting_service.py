@@ -47,6 +47,8 @@ _BASE_ACCOUNTS: tuple[AccountItem, ...] = (
     AccountItem(account_set_id="default", account_code="1405", account_name="库存商品", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1601", account_name="固定资产", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1602", account_name="累计折旧", account_type="asset", normal_balance="credit"),
+    AccountItem(account_set_id="default", account_code="1603", account_name="固定资产减值准备", account_type="asset", normal_balance="credit"),
+    AccountItem(account_set_id="default", account_code="1606", account_name="固定资产清理", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="2001", account_name="短期借款", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="2202", account_name="应付账款", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="2203", account_name="预收账款", account_type="liability", normal_balance="credit"),

@@ -51,3 +51,16 @@ class FixedAssetAccountingEntryBatch(BaseModel):
     depreciated_count: int = Field(ge=0)
     total_depreciation: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
     entries: list[JournalEntryRecord]
+
+
+class FixedAssetDisposalAccountingResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    period: str
+    asset_id: str
+    asset_code: str
+    asset_status: FormalAssetLifecycleStatus
+    clearing_account_code: str = "1606"
+    disposal_gain_or_loss: Decimal = Field(max_digits=14, decimal_places=2)
+    entries: list[JournalEntryRecord]
