@@ -185,9 +185,81 @@ GET /api/v1/vouchers/center/export/csv
 POST /api/v1/vouchers/center/{voucher_id}/attachments
 ```
 
-分别用于 JSON 批量导入、CSV 导出和附件上传记录。当前附件接口只记录文件元数据与 OCR 接入状态，未做永久文件存储。
+分别用于 JSON 批量导入、CSV 导出和附件上传记录。当前附件上传会生成电子会计档案文档索引，返回 `archive_document_id`、`sha256_hash`、`storage_status` 和 `ocr_status`；系统计算上传字节的 SHA-256 并保存元数据与可选文本摘录，不把原始二进制永久写入 SQLite，也不伪造 OCR 或官方验真结果。
 
 当前凭证中心是工作流 MVP，使用本地 SQLite 保存演示凭证、账套标识、审核状态、过账状态、附件元数据和月度编号序列；服务重启后凭证仍保留。正式核算一期使用独立 SQLite 正式分录库保存 `journal_entry` / `journal_line`，账簿读模型优先基于正式分录生成总账、明细账和科目余额表；默认账套、跨境电商账套与会计期间状态用于一期关账控制，该库仍不执行完整期末结账、完整反结账或完整多账套核算。
+
+## 电子会计档案 Phase 7
+
+```text
+GET /api/v1/accounting-archive/documents?account_set_id=default&period=2026-06
+GET /api/v1/accounting-archive/documents/{archive_document_id}
+POST /api/v1/accounting-archive/cases
+GET /api/v1/accounting-archive/cases/{archive_case_id}/download
+```
+
+文档列表响应：
+
+```json
+{
+  "total": 1,
+  "documents": [
+    {
+      "archive_document_id": "arch_doc_...",
+      "account_set_id": "default",
+      "period": "2026-06",
+      "source_type": "voucher",
+      "source_id": "voucher-001",
+      "document_type": "invoice",
+      "filename": "invoice.txt",
+      "content_type": "text/plain",
+      "size": 12,
+      "sha256_hash": "9adcc70a5f32964ef54c16a3f3e2138f3bfe85e88b12402b248e8f28a1b2a884",
+      "storage_status": "metadata_only",
+      "archive_status": "indexed",
+      "ocr_status": "text_parsed",
+      "verification_status": "pending_external",
+      "retention_years": 30,
+      "uploaded_by": "finance-user",
+      "created_at": "2026-07-06T00:00:00+00:00"
+    }
+  ]
+}
+```
+
+创建案卷请求：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "case_type": "voucher",
+  "title": "2026-06 凭证档案",
+  "document_ids": ["arch_doc_..."],
+  "created_by": "finance-manager"
+}
+```
+
+归档包下载返回 ZIP，文件名形如 `accounting-archive-default-2026-06-voucher.zip`，内容包含 `manifest.json`、每个档案文档的元数据 JSON，以及可用的文本摘录文件。图片和 PDF 在未接入真实 OCR 引擎时返回 `ocr_status="engine_required"`；发票和银行回单在未接入外部验真服务前返回 `verification_status="pending_external"`；默认保管期限按档案类型设置，凭证、发票、回单、合同和报表当前按 30 年处理。
+
+权限点：
+
+- `archive.read`
+- `archive.document.create`
+- `archive.case.create`
+- `archive.package.download`
+- `archive.verification.update`
+
+审计事件：
+
+- `archive.document.list`
+- `archive.document.get`
+- `archive.document.create`
+- `archive.case.create`
+- `archive.package.download`
+- `archive.verification.update`
+
+当前归档 API 只提供档案索引、哈希校验、案卷清单和 ZIP 交换包，不覆盖 CA 签章、官方电子发票实时验真、对象存储 WORM、长期冷备、跨系统档案移交或档案销毁审批。
 
 ## 正式会计核算引擎一期
 

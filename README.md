@@ -28,10 +28,11 @@
 - 固定资产台账 MVP：支持新增资产、直线法自动折旧、报废、出售、盘点、账套隔离和审计日志
 - 工资管理 MVP：支持工资计算、社保、公积金、个税、实发工资、企业成本和部门工资分析
 - 财务报表自动生成 MVP：支持资产负债表、利润表、现金流量表、所有者权益变动表、管理报表摘要、快照归档和 Excel/PDF 导出
+- 电子会计档案 Phase 7：凭证附件生成档案文档索引，记录 SHA-256、OCR 状态、验真状态、保管期限，并支持创建案卷和下载归档 ZIP
 - AI 凭证草稿：支持费用采购、库存采购、销售收入三类场景，自动生成借贷分录草稿、借贷平衡检查、风险提示和法规引用
 - AI 自动审核：审核凭证分录、发票号码、摘要、交易对方、价税勾稽、借贷平衡和增值税科目方向，输出评分、评级、错误清单和整改建议
 
-第一版支持先下载标准模板，再上传 `.xlsx` / `.xlsm` 分析；WPS 表格请先另存为 `.xlsx`。发票图片 / PDF 上传入口已预留，但当前本地环境未内置真实 OCR 引擎，系统会明确提示需接入 OCR 服务，不会伪造图片或 PDF 识别结果。凭证中心当前使用 SQLite 持久化工作流库保存演示凭证、审核状态、过账状态、账套标识、附件元数据和月度编号序列；正式核算一期已新增独立 SQLite 正式分录库，已审核凭证过账会生成 `journal_entry` / `journal_line`，账簿和财务报表优先读取正式分录来源，无正式分录时再回退 MVP 凭证工作流或样例经营数据。固定资产当前为内存台账 MVP，用于验证资产生命周期、折旧和盘点流程。工资管理当前为简化计算 MVP，用于验证工资、社保、公积金、个税和人工成本分析流程。财务报表当前为单账套、单期间生成 MVP，用于验证报表取数和管理摘要，不替代正式财务报表编制与披露。自动审核只做规则提示和风险定位，不构成最终审计意见。暂不支持 WPS 原生 `.et`、旧版 `.xls`、自动申报税务、每日实时政策同步或自动失效判断。
+第一版支持先下载标准模板，再上传 `.xlsx` / `.xlsm` 分析；WPS 表格请先另存为 `.xlsx`。发票图片 / PDF 上传入口已预留，但当前本地环境未内置真实 OCR 引擎，系统会明确提示需接入 OCR 服务，不会伪造图片或 PDF 识别结果。凭证中心当前使用 SQLite 持久化工作流库保存演示凭证、审核状态、过账状态、账套标识、附件元数据和月度编号序列；正式核算一期已新增独立 SQLite 正式分录库，已审核凭证过账会生成 `journal_entry` / `journal_line`，账簿和财务报表优先读取正式分录来源，无正式分录时再回退 MVP 凭证工作流或样例经营数据。电子会计档案当前只保存文档索引、哈希、可选文本摘录和案卷清单，不把原始二进制永久写入数据库，不提供 CA 签章、官方验真或长期冷备。固定资产当前为内存台账 MVP，用于验证资产生命周期、折旧和盘点流程。工资管理当前为简化计算 MVP，用于验证工资、社保、公积金、个税和人工成本分析流程。财务报表当前为单账套、单期间生成 MVP，用于验证报表取数和管理摘要，不替代正式财务报表编制与披露。自动审核只做规则提示和风险定位，不构成最终审计意见。暂不支持 WPS 原生 `.et`、旧版 `.xls`、自动申报税务、每日实时政策同步或自动失效判断。
 
 ## OCR 发票识别
 
@@ -71,7 +72,7 @@
 - 按账套保存凭证，当前内置 `default` 和 `cross_border` 两个账套。
 - 将已审核凭证标记为过账或反过账；会计期间关闭前必须没有未过账凭证，关闭后禁止继续过账。
 
-当前实现保留凭证中心工作流库，同时接入正式核算一期和多币种核算二期。已审核凭证过账会生成正式不可变分录；反过账不删除原分录，而是生成冲销分录并保留原分录审计轨迹。期末外币重估、辅助核算维度、期末损益结转、电子会计档案和永久附件存储放入后续阶段。
+当前实现保留凭证中心工作流库，同时接入正式核算一期、多币种核算二期和电子会计档案 Phase 7。已审核凭证过账会生成正式不可变分录；反过账不删除原分录，而是生成冲销分录并保留原分录审计轨迹。凭证附件上传后会生成会计档案文档索引和哈希，永久原件存储、CA 签章、官方发票验真和完整档案移交流程仍放入后续阶段。
 
 ## 账簿读模型 MVP
 
@@ -151,6 +152,30 @@ GET /api/v1/financial-statements/snapshots/{snapshot_id}/export/pdf
 
 ```powershell
 python -m pytest backend/tests/test_statement_archive_service.py backend/tests/test_statement_export_service.py backend/tests/test_financial_statement_api.py backend/tests/test_financial_statement_service.py backend/tests/test_system_admin_api.py
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
+## 电子会计档案 Phase 7
+
+后端新增会计档案文档、案卷和归档包接口：
+
+```text
+GET /api/v1/accounting-archive/documents?account_set_id=default&period=2026-06
+GET /api/v1/accounting-archive/documents/{archive_document_id}
+POST /api/v1/accounting-archive/cases
+GET /api/v1/accounting-archive/cases/{archive_case_id}/download
+```
+
+凭证附件上传后会创建 `ArchiveDocument`，记录 `source_type/source_id`、账套、期间、文档类型、文件名、content type、大小、`sha256_hash`、`storage_status`、`ocr_status`、`verification_status` 和 `retention_years`。文本附件可保存文本摘录；图片或 PDF 在未接入真实 OCR 引擎时标记为 `ocr_status="engine_required"`；发票和银行回单在未接入外部验真服务时标记为 `verification_status="pending_external"`，不会伪造成 `verified`。
+
+前端 AI 财务中心新增“会计档案”面板，支持查看当前期间档案文档、勾选文档创建案卷，并下载包含 `manifest.json`、文档元数据 JSON 和可用文本摘录的 ZIP 归档包。当前 MVP 不永久保存原始二进制文件，不提供 CA 签章、对象存储 WORM、官方电子发票验真、跨系统档案移交或档案销毁审批。
+
+权限点：`archive.read`、`archive.document.create`、`archive.case.create`、`archive.package.download`、`archive.verification.update`。审计事件：`archive.document.list`、`archive.document.get`、`archive.document.create`、`archive.case.create`、`archive.package.download`、`archive.verification.update`。
+
+回归命令：
+```powershell
+python -m pytest backend/tests/test_accounting_archive_service.py backend/tests/test_accounting_archive_api.py backend/tests/test_voucher_center_service.py backend/tests/test_voucher_center_api.py backend/tests/test_system_admin_api.py backend/tests/test_module_registry_api.py
 npm --prefix frontend test
 npm --prefix frontend run build
 ```
