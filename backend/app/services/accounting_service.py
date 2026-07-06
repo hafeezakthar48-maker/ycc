@@ -39,6 +39,7 @@ TWO_PLACES = Decimal("0.01")
 _BASE_ACCOUNTS: tuple[AccountItem, ...] = (
     AccountItem(account_set_id="default", account_code="1001", account_name="库存现金", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1002", account_name="银行存款", account_type="asset", normal_balance="debit"),
+    AccountItem(account_set_id="default", account_code="1012", account_name="其他货币资金", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1122", account_name="应收账款", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1123", account_name="预付账款", account_type="asset", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="1221", account_name="其他应收款", account_type="asset", normal_balance="debit"),
@@ -354,6 +355,37 @@ def list_counterparty_journal_lines(
                     "counterparty_name": dimension.dimension_name,
                 }
             )
+    return rows
+
+
+def list_cash_journal_lines(account_set_id: str, period: str) -> list[dict]:
+    validate_account_set(account_set_id)
+    rows: list[dict] = []
+    for entry in list_journal_entries(account_set_id, period).entries:
+        if entry.status != "posted":
+            continue
+        for line in entry.lines:
+            if not line.account_code.startswith(("1001", "1002", "1012")):
+                continue
+            rows.append(
+                {
+                    "entry_id": entry.id,
+                    "line_id": line.id,
+                    "entry_date": entry.entry_date,
+                    "period": entry.period,
+                    "source_type": entry.source_type,
+                    "source_id": entry.source_id,
+                    "account_code": line.account_code,
+                    "account_name": line.account_name,
+                    "direction": line.direction,
+                    "cash_direction": "inflow" if line.direction == "debit" else "outflow",
+                    "currency": line.currency,
+                    "original_amount": line.original_amount,
+                    "base_amount": line.base_amount,
+                    "summary": line.description or entry.description,
+                }
+            )
+    rows.sort(key=lambda row: (row["entry_date"], row["entry_id"], row["line_id"]))
     return rows
 
 

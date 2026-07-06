@@ -47,3 +47,31 @@ class BankStatementImportResult(BaseModel):
     imported_count: int
     duplicate_count: int
     lines: list[BankStatementLine]
+
+
+class BankMatchCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    statement_line_id: str
+    journal_entry_id: str
+    journal_line_id: str
+    direction: BankTransactionDirection
+    score: int = Field(ge=0, le=100)
+    reasons: list[str]
+    statement_date: str
+    journal_date: str
+    statement_amount: Decimal
+    journal_amount: Decimal
+    currency: str
+    counterparty_name: str = ""
+    summary: str = ""
+
+
+class BankMatchCandidateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    bank_account_id: str
+    period: str
+    minimum_score: int
+    candidates: list[BankMatchCandidate]
