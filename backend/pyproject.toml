@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "china-finance-ai-assistant-backend"
+version = "0.1.0"
+description = "China Finance AI Assistant MVP backend"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.116.0",
+  "openpyxl>=3.1.5",
+  "python-multipart>=0.0.20",
+  "uvicorn[standard]>=0.35.0",
+  "pydantic>=2.11.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28.0",
+  "pytest>=8.4.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

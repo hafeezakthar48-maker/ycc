@@ -1,0 +1,21 @@
+{
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "test:nav": "node tests/osModules.test.mjs && node tests/moduleRegistryApi.test.mjs && node tests/systemAdminApi.test.mjs && node tests/systemAdminPanel.test.mjs && node tests/riskClosureApi.test.mjs && node tests/riskClosurePanel.test.mjs && node tests/ledgerApi.test.mjs && node tests/ledgerPanel.test.mjs && node tests/fixedAssetApi.test.mjs && node tests/fixedAssetPanel.test.mjs && node tests/payrollApi.test.mjs && node tests/payrollPanel.test.mjs && node tests/financialStatementApi.test.mjs && node tests/financialStatementPanel.test.mjs && node tests/voucherPostingPanel.test.mjs",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "echarts": "^6.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vite": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,136 @@
+[
+  {
+    "id": "ai-home",
+    "label": "AI首页",
+    "status": "MVP",
+    "items": [
+      { "label": "首页总览", "anchor": "ai-home" },
+      { "label": "经营指标", "anchor": "overview" }
+    ],
+    "roadmap": ["经营概况", "利润", "现金流", "库存", "税务", "AI提示"],
+    "nextIntegration": "接入真实业务数据后，按管理层角色生成一屏式经营总览。"
+  },
+  {
+    "id": "finance-center",
+    "label": "AI财务中心",
+    "status": "MVP",
+    "items": [
+      { "label": "凭证中心", "anchor": "voucher-center" },
+      { "label": "账簿视图", "anchor": "ledger-panel" },
+      { "label": "固定资产", "anchor": "fixed-asset-panel" },
+      { "label": "工资管理", "anchor": "payroll-panel" },
+      { "label": "财务报表", "anchor": "financial-statements-panel" },
+      { "label": "凭证草稿", "anchor": "voucher-draft" },
+      { "label": "自动审核", "anchor": "audit-review" },
+      { "label": "管理报表", "anchor": "report" }
+    ],
+    "roadmap": ["智能记账", "凭证中心", "总账", "会计期间", "固定资产", "工资管理", "报表", "多账套", "多币种"],
+    "nextIntegration": "已接入凭证持久化、账簿读模型、会计期间状态、固定资产台账、工资管理和标准财务报表；下一步增强多账套、多币种和报表导出联动。"
+  },
+  {
+    "id": "tax-center",
+    "label": "AI税务中心",
+    "status": "MVP",
+    "items": [
+      { "label": "法规依据", "anchor": "policy-library" },
+      { "label": "税务风险", "anchor": "risk" }
+    ],
+    "roadmap": ["增值税", "企业所得税", "个税", "消费税", "印花税", "出口退税", "跨境税务", "政策依据"],
+    "nextIntegration": "先做增值税和企业所得税规则卡片，所有建议必须引用政策依据。"
+  },
+  {
+    "id": "analysis-center",
+    "label": "AI经营分析中心",
+    "status": "MVP",
+    "items": [
+      { "label": "利润趋势", "anchor": "profit" },
+      { "label": "现金流趋势", "anchor": "cashflow" },
+      { "label": "经营判断", "anchor": "ai-summary" }
+    ],
+    "roadmap": ["利润趋势", "收入趋势", "费用趋势", "成本趋势", "现金流趋势", "库存趋势", "企业健康度", "老板建议"],
+    "nextIntegration": "把导入数据沉淀为可复用分析数据集，再生成经营报告和风险报告。"
+  },
+  {
+    "id": "bi-center",
+    "label": "BI数据中心",
+    "status": "MVP",
+    "items": [
+      { "label": "经营驾驶舱", "anchor": "overview" },
+      { "label": "风险热力图", "anchor": "risk-heatmap" }
+    ],
+    "roadmap": ["数据驾驶舱", "经营驾驶舱", "销售驾驶舱", "税务驾驶舱", "库存驾驶舱", "采购驾驶舱", "老板驾驶舱", "点击钻取分析"],
+    "nextIntegration": "统一图表配置和指标口径，为 Drill Down 和多驾驶舱打基础。"
+  },
+  {
+    "id": "ecommerce-center",
+    "label": "电商分析中心",
+    "status": "MVP",
+    "items": [
+      { "label": "电商利润", "anchor": "ecommerce" }
+    ],
+    "roadmap": ["淘宝", "京东", "拼多多", "抖音", "Amazon", "SKU利润分析", "广告ROI分析", "退货率分析", "活动效果分析"],
+    "nextIntegration": "先定义统一平台数据模板，再扩展 SKU、广告、退货和活动效果分析。"
+  },
+  {
+    "id": "ocr-center",
+    "label": "OCR识别中心",
+    "status": "MVP",
+    "items": [
+      { "label": "发票OCR", "anchor": "invoice-ocr" }
+    ],
+    "roadmap": ["增值税发票", "普通发票", "银行回单", "合同", "送货单", "采购单", "销售单", "PDF", "Word扫描件"],
+    "nextIntegration": "接入真实 OCR 引擎后，增加自动分类、字段提取、凭证建议和归档。"
+  },
+  {
+    "id": "knowledge-base",
+    "label": "企业知识库",
+    "status": "MVP",
+    "items": [
+      { "label": "政策知识库", "anchor": "policy-library" },
+      { "label": "财务问答依据", "anchor": "finance-qa" }
+    ],
+    "roadmap": ["PDF", "Word", "Excel", "Markdown", "合同", "制度", "流程", "税法", "RAG知识库", "版本管理", "来源追踪"],
+    "nextIntegration": "先把政策库扩展为可上传文档库，再补版本管理、引用来源和权限范围。"
+  },
+  {
+    "id": "ai-assistant",
+    "label": "AI智能助手",
+    "status": "MVP",
+    "items": [
+      { "label": "AI财务问答", "anchor": "finance-qa" }
+    ],
+    "roadmap": ["聊天", "语音", "文档分析", "Excel分析", "图片分析", "PDF分析", "自动写报告", "自动制作PPT", "工具调用"],
+    "nextIntegration": "把问答能力升级为可调用 OCR、报表、凭证和知识库工具的助手。"
+  },
+  {
+    "id": "risk-center",
+    "label": "风险预警中心",
+    "status": "MVP",
+    "items": [
+      { "label": "风险预警", "anchor": "risk" },
+      { "label": "凭证风险", "anchor": "audit-review" }
+    ],
+    "roadmap": ["税务风险", "库存风险", "利润异常", "现金流风险", "应收账款风险", "费用异常", "合同风险", "闭环跟踪"],
+    "nextIntegration": "补风险处理记录、责任人、状态流转和复核闭环。"
+  },
+  {
+    "id": "system-admin",
+    "label": "系统管理",
+    "status": "规划",
+    "items": [
+      { "label": "权限与审计", "anchor": "system-admin" }
+    ],
+    "roadmap": ["用户管理", "角色管理", "权限控制", "账套管理", "审计日志", "数据安全策略"],
+    "nextIntegration": "先定义角色权限模型，再接入凭证、导出和开放平台的操作日志。"
+  },
+  {
+    "id": "open-platform",
+    "label": "开放平台",
+    "status": "规划",
+    "items": [
+      { "label": "API与集成", "anchor": "open-platform" }
+    ],
+    "roadmap": ["REST API", "Webhook", "OAuth2", "OpenAPI", "SDK", "ERP集成", "银行接口集成", "限流", "版本管理"],
+    "nextIntegration": "先生成 OpenAPI 契约，再补鉴权、限流、Webhook 和 SDK。"
+  }
+]

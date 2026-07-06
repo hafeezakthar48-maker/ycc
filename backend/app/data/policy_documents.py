@@ -1,0 +1,99 @@
+from app.models.policy import PolicyDocument
+
+
+POLICY_DOCUMENTS: tuple[PolicyDocument, ...] = (
+    PolicyDocument(
+        id="cas-14-revenue-2017",
+        title="企业会计准则第14号——收入",
+        authority="财政部",
+        document_number="财会〔2017〕22号",
+        category="会计准则",
+        published_date="2017-07-05",
+        effective_date="2018-01-01",
+        status="现行有效",
+        source_url="https://czj.sh.gov.cn/zys_8908/zcfg_8983/kjss_9038/20170804/0017-151838.html",
+        updated_at="2026-07-04",
+        keywords=["收入", "收入确认", "履约义务", "控制权", "电商", "合同负债", "可变对价"],
+        summary="规范客户合同收入确认、计量和列报，强调识别履约义务和控制权转移。",
+        content=(
+            "企业应当在履行了合同中的履约义务，即客户取得相关商品控制权时确认收入。"
+            "电商业务应结合发货、签收、退货权、平台结算规则、总额法或净额法判断收入确认口径。"
+            "存在折扣、返利、积分、退款等可变对价时，需要评估预计退款和合同负债。"
+        ),
+    ),
+    PolicyDocument(
+        id="cas-04-fixed-assets-2006",
+        title="企业会计准则第4号——固定资产",
+        authority="财政部",
+        document_number="财会〔2006〕3号",
+        category="会计准则",
+        published_date="2006-02-15",
+        effective_date="2007-01-01",
+        status="现行有效",
+        source_url="https://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/200806/t20080618_46267.htm",
+        updated_at="2026-07-04",
+        keywords=["固定资产", "折旧", "残值", "使用寿命", "资本化", "减值", "处置"],
+        summary="规范固定资产确认、初始计量、折旧、后续支出、处置等会计处理。",
+        content=(
+            "固定资产应按成本进行初始计量，并在使用寿命内系统分摊折旧。"
+            "折旧方法、预计使用寿命和预计净残值应结合资产经济利益实现方式确定。"
+            "后续维修支出是否资本化，应判断是否使资产未来经济利益增加。"
+        ),
+    ),
+    PolicyDocument(
+        id="invoice-management-measures",
+        title="中华人民共和国发票管理办法",
+        authority="国务院",
+        document_number="国务院令相关修订",
+        category="税收法规",
+        published_date="2010-12-20",
+        effective_date="2011-02-01",
+        status="需复核",
+        source_url="https://fgk.chinatax.gov.cn/zcfgk/c102416/c5203332/content.html",
+        updated_at="2026-07-04",
+        keywords=["发票", "电子发票", "虚开", "抵扣", "开票", "红冲", "发票风险"],
+        summary="规范发票印制、领用、开具、取得、保管和监督管理。",
+        content=(
+            "单位和个人在购销商品、提供或者接受服务以及从事其他经营活动中，应当按照规定开具、使用、取得发票。"
+            "发票风险复核应关注业务真实性、开票方、购买方、项目名称、金额、税额、备注栏和红冲记录。"
+            "仅有发票不能单独证明交易真实，应与合同、订单、物流、验收和资金流水交叉验证。"
+        ),
+    ),
+    PolicyDocument(
+        id="enterprise-income-tax-law",
+        title="中华人民共和国企业所得税法",
+        authority="全国人民代表大会",
+        document_number=None,
+        category="税收法规",
+        published_date="2007-03-16",
+        effective_date="2008-01-01",
+        status="需复核",
+        source_url="https://fgk.chinatax.gov.cn/zcfgk/c100012/c5194356/content.html",
+        updated_at="2026-07-04",
+        keywords=["企业所得税", "应纳税所得额", "扣除", "收入总额", "税前扣除", "税收优惠"],
+        summary="规定居民企业和非居民企业企业所得税纳税义务、收入、扣除、税率和优惠等。",
+        content=(
+            "企业所得税处理应关注收入总额、不征税收入、免税收入、各项扣除、亏损弥补和税收优惠。"
+            "费用税前扣除需要真实、合法、相关、合理，并留存合同、发票、付款和业务证明材料。"
+            "地方性优惠和阶段性政策具有时效性，正式判断需查询最新税务政策。"
+        ),
+    ),
+    PolicyDocument(
+        id="vat-temporary-regulations",
+        title="中华人民共和国增值税暂行条例",
+        authority="国务院",
+        document_number="国务院令相关修订",
+        category="税收法规",
+        published_date="1993-12-13",
+        effective_date="1994-01-01",
+        status="需复核",
+        source_url="https://fgk.chinatax.gov.cn/zcfgk/c100012/c5194292/content.html",
+        updated_at="2026-07-04",
+        keywords=["增值税", "销项税额", "进项税额", "抵扣", "税率", "纳税义务发生时间"],
+        summary="规定增值税纳税人、征税范围、税率、应纳税额计算和征收管理基本规则。",
+        content=(
+            "增值税风险复核应关注纳税义务发生时间、销售额确认、销项税额、进项税额抵扣和发票合规性。"
+            "具体适用税率、优惠和阶段性政策变化较快，正式处理需结合国家税务总局最新政策。"
+        ),
+    ),
+)
