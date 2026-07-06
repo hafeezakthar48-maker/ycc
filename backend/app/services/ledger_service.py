@@ -16,6 +16,7 @@ from app.services.voucher_center_service import list_vouchers
 
 PERIOD_PATTERN = re.compile(r"^\d{4}-\d{2}$")
 ZERO = Decimal("0.00")
+ONE_RATE = Decimal("1.000000")
 
 
 @dataclass
@@ -211,6 +212,9 @@ def _voucher_detail_lines(voucher: VoucherCenterRecord) -> list[LedgerDetailLine
                 account_name=line.account_name,
                 direction=line.direction,
                 explanation=line.explanation,
+                currency="CNY",
+                original_amount=line.amount,
+                exchange_rate=ONE_RATE,
                 debit_amount=debit_amount,
                 credit_amount=credit_amount,
                 status=voucher.status,
@@ -234,6 +238,9 @@ def _journal_detail_lines(entry) -> list[LedgerDetailLine]:
                 account_name=line.account_name,
                 direction="借" if line.direction == "debit" else "贷",
                 explanation=line.description,
+                currency=line.currency,
+                original_amount=line.original_amount,
+                exchange_rate=line.exchange_rate,
                 debit_amount=debit_amount,
                 credit_amount=credit_amount,
                 status=entry.status,

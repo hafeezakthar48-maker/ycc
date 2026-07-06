@@ -28,6 +28,9 @@ class LedgerDetailLine(BaseModel):
     account_name: str
     direction: Literal["借", "贷"]
     explanation: str
+    currency: str = "CNY"
+    original_amount: Decimal = Decimal("0.00")
+    exchange_rate: Decimal = Decimal("1.000000")
     debit_amount: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
     credit_amount: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
     status: str

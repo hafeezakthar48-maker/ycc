@@ -2,9 +2,9 @@ from decimal import Decimal
 
 import pytest
 
-from app.models.accounting import JournalEntryCreate, JournalLineCreate
+from app.models.accounting import ExchangeRateCreate, JournalEntryCreate, JournalLineCreate
 from app.models.voucher_center import VoucherCenterCreateRequest, VoucherCenterLine
-from app.services.accounting_service import post_journal_entry, reset_accounting_store
+from app.services.accounting_service import post_journal_entry, reset_accounting_store, upsert_exchange_rate
 from app.services.ledger_service import build_account_balance_table, build_detail_ledger, build_general_ledger
 from app.services.voucher_center_service import create_voucher, reset_voucher_store, review_voucher
 
@@ -143,3 +143,53 @@ def test_general_ledger_prefers_formal_journal_entries():
     assert ledger.entry_count == 2
     assert ledger.total_debit == Decimal("100.00")
     assert ledger.total_credit == Decimal("100.00")
+
+
+def test_detail_ledger_shows_original_currency_and_base_amount():
+    reset_accounting_store()
+    upsert_exchange_rate(
+        ExchangeRateCreate(
+            account_set_id="default",
+            rate_date="2026-06-18",
+            source_currency="USD",
+            target_currency="CNY",
+            rate=Decimal("7.120000"),
+        )
+    )
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2026-06-18",
+            source_type="manual_adjustment",
+            source_id="fx-ledger-1",
+            description="美元收入",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    currency="USD",
+                    original_amount=Decimal("100.00"),
+                    exchange_rate=Decimal("7.120000"),
+                    base_amount=Decimal("712.00"),
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    currency="USD",
+                    original_amount=Decimal("100.00"),
+                    exchange_rate=Decimal("7.120000"),
+                    base_amount=Decimal("712.00"),
+                ),
+            ],
+        )
+    )
+
+    detail = build_detail_ledger("2026-06", "1122", "default")
+
+    assert detail.source == "formal_journal_entries"
+    assert detail.lines[0].currency == "USD"
+    assert detail.lines[0].original_amount == Decimal("100.00")
+    assert detail.lines[0].exchange_rate == Decimal("7.120000")
+    assert detail.lines[0].debit_amount == Decimal("712.00")
