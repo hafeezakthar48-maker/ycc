@@ -238,6 +238,77 @@ GET /api/v1/ledger/detail?period=2026-06&account_code=1122&dimension_type=custom
 
 后端会校验维度主数据存在且启用，并在正式分录行中保存维度名称快照。
 
+## 期间结账引擎四期
+
+```text
+POST /api/v1/period-close/runs
+GET /api/v1/period-close/runs?account_set_id=default&period=2026-06
+POST /api/v1/period-close/checks
+POST /api/v1/period-close/actions/preview
+POST /api/v1/period-close/actions/generate
+POST /api/v1/period-close/close
+POST /api/v1/period-close/reopen
+```
+
+发起或查询结账运行：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "close_type": "monthly",
+  "started_by": "u-finance-manager"
+}
+```
+
+运行结账检查：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "close_type": "monthly"
+}
+```
+
+生成或预览期末动作：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "close_type": "monthly",
+  "actions": [
+    "fixed_asset_depreciation",
+    "payroll_accrual",
+    "tax_accrual",
+    "fx_revaluation",
+    "profit_loss_carryforward"
+  ],
+  "tax_accrual_rules": [
+    {
+      "tax_name": "增值税",
+      "expense_account_code": "6403",
+      "liability_account_code": "2221",
+      "amount": 3600
+    }
+  ]
+}
+```
+
+关闭或重开期间：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06"
+}
+```
+
+生成接口会先运行检查清单，存在阻断项时返回 `409`；`preview=true` 时只返回将要生成的动作结果，不写入正式分录。实际生成时会按来源键幂等处理，同一账套、期间、动作和来源重复执行不会重复过账。
+外币期末重估只生成本位币 CNY 调整分录，原币金额保持不变；损益结转按月结转至 `4103 本年利润`，年结再转入 `4104 利润分配-未分配利润`。
+期间结账接口支持 `X-Actor-Id` 请求头，分别受 `period_close.view`、`period_close.check`、`period_close.generate`、`period_close.close` 和 `period_close.reopen` 权限控制，并记录 `period_close.run_started`、`period_close.runs_viewed`、`period_close.checks_completed`、`period_close.actions_previewed`、`period_close.actions_generated`、`period_close.period_closed` 和 `period_close.period_reopened` 审计日志。
+
 ## 账簿读模型 MVP
 
 ```text

@@ -169,3 +169,27 @@
 前端：http://127.0.0.1:5173
 后端：http://127.0.0.1:8000/health
 ```
+
+## 期间结账引擎 Phase 4
+
+当前版本已接入正式核算期间结账流程，入口位于前端 AI 财务中心的“期间结账”面板，后端 API 前缀为 `/api/v1/period-close`。
+
+支持能力：
+- 结账检查清单：期间存在、期间未关闭、正式分录借贷平衡、凭证已过账、科目有效、期末汇率准备、折旧/工资/税费准备状态。
+- 自动期末分录：固定资产折旧、工资计提、税费计提、外币期末重估、损益结转、年终利润分配。
+- 外币重估：按期末汇率计算 `原币余额 × 期末汇率 - 账面本位币余额`，只生成 CNY 调整分录，保持原币余额不变。
+- 损益结转：月结将收入、成本、费用类科目结转至 `4103 本年利润`；年结将 `4103 本年利润` 转入 `4104 利润分配-未分配利润`。
+- 幂等控制：同一账套、期间、动作和来源键重复执行时返回已有分录，不重复过账。
+- 期间控制：关闭期间后拒绝新增正式分录、凭证过账和重生成期末动作；重开期间只记录状态和审计事件，不删除已生成分录。
+
+权限与审计：
+- 权限点：`period_close.view`、`period_close.check`、`period_close.generate`、`period_close.close`、`period_close.reopen`。
+- 审计事件：`period_close.run_started`、`period_close.runs_viewed`、`period_close.checks_completed`、`period_close.actions_previewed`、`period_close.actions_generated`、`period_close.period_closed`、`period_close.period_reopened`。
+
+回归命令：
+
+```powershell
+python -m pytest backend/tests/test_period_close_service.py backend/tests/test_period_close_api.py backend/tests/test_accounting_period_service.py backend/tests/test_accounting_service.py backend/tests/test_fixed_asset_service.py backend/tests/test_payroll_service.py
+npm --prefix frontend test
+npm --prefix frontend run build
+```
