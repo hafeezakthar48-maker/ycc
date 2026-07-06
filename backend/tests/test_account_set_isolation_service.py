@@ -9,6 +9,7 @@ from app.services.accounting_period_service import (
     list_accounting_periods,
     reset_accounting_period_store,
 )
+from app.services.accounting_service import reset_accounting_store
 from app.services.ledger_service import build_general_ledger
 from app.services.voucher_center_service import create_voucher, post_voucher, reset_voucher_store, review_voucher
 
@@ -16,7 +17,9 @@ from app.services.voucher_center_service import create_voucher, post_voucher, re
 @pytest.fixture(autouse=True)
 def isolated_stores(tmp_path, monkeypatch):
     monkeypatch.setenv("FINANCE_AI_VOUCHER_DB_PATH", str(tmp_path / "voucher-center.sqlite3"))
+    monkeypatch.setenv("FINANCE_AI_ACCOUNTING_DB_PATH", str(tmp_path / "formal-accounting.sqlite3"))
     reset_voucher_store()
+    reset_accounting_store()
     reset_accounting_period_store()
 
 
