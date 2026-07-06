@@ -3,10 +3,10 @@ from typing import get_args
 
 import pytest
 
-from app.models.accounting import JournalEntryCreate, JournalLineCreate
+from app.models.accounting import ExchangeRateCreate, JournalEntryCreate, JournalLineCreate
 from app.models.financial_statement import FinancialStatementGenerateRequest
 from app.models.voucher_center import VoucherCenterCreateRequest, VoucherCenterLine
-from app.services.accounting_service import post_journal_entry, reset_accounting_store
+from app.services.accounting_service import post_journal_entry, reset_accounting_store, upsert_exchange_rate
 from app.services.financial_statement_service import generate_financial_statements
 from app.services.voucher_center_service import create_voucher, reset_voucher_store, review_voucher
 
@@ -116,3 +116,51 @@ def test_financial_statements_prefer_formal_journal_entries():
 
     assert bundle.source == "formal_journal_entries"
     assert bundle.income_statement.total_revenue == Decimal("1000.00")
+
+
+def test_financial_statement_summary_reports_base_currency_and_foreign_line_count():
+    reset_accounting_store()
+    upsert_exchange_rate(
+        ExchangeRateCreate(
+            account_set_id="default",
+            rate_date="2026-06-18",
+            source_currency="USD",
+            target_currency="CNY",
+            rate=Decimal("7.120000"),
+        )
+    )
+    post_journal_entry(
+        JournalEntryCreate(
+            account_set_id="default",
+            entry_date="2026-06-18",
+            source_type="manual_adjustment",
+            source_id="fx-statement-1",
+            description="美元收入",
+            lines=[
+                JournalLineCreate(
+                    account_code="1122",
+                    account_name="应收账款",
+                    direction="debit",
+                    currency="USD",
+                    original_amount=Decimal("100.00"),
+                    exchange_rate=Decimal("7.120000"),
+                    base_amount=Decimal("712.00"),
+                ),
+                JournalLineCreate(
+                    account_code="6001",
+                    account_name="主营业务收入",
+                    direction="credit",
+                    currency="USD",
+                    original_amount=Decimal("100.00"),
+                    exchange_rate=Decimal("7.120000"),
+                    base_amount=Decimal("712.00"),
+                ),
+            ],
+        )
+    )
+
+    bundle = generate_financial_statements(FinancialStatementGenerateRequest(period="2026-06", account_set_id="default"))
+
+    assert bundle.summary.base_currency == "CNY"
+    assert bundle.summary.foreign_currency_line_count == 2
+    assert any("外币分录 2 行" in item for item in bundle.management_summary.highlights)

@@ -15,6 +15,7 @@ from app.models.financial_statement import (
 )
 from app.models.ledger import LedgerAccountSummary
 from app.services.analysis_service import COMPANY_NAME
+from app.services.accounting_service import list_journal_entries
 from app.services.ledger_service import build_general_ledger
 
 
@@ -231,7 +232,13 @@ def _bundle(
     cash_flow_statement: CashFlowStatement,
     equity_statement: EquityStatement,
 ) -> FinancialStatementBundle:
+    base_currency = "CNY"
+    foreign_currency_line_count = _foreign_currency_line_count(request.account_set_id, request.period, base_currency)
     management_summary = _management_summary(balance_sheet, income_statement, cash_flow_statement, source)
+    if foreign_currency_line_count:
+        management_summary.highlights.append(
+            f"本期包含外币分录 {foreign_currency_line_count} 行，报表金额按账套本位币 {base_currency} 展示。"
+        )
     return FinancialStatementBundle(
         account_set_id=request.account_set_id,
         period=request.period,
@@ -244,6 +251,8 @@ def _bundle(
             reviewed_voucher_count=reviewed_voucher_count,
             asset_liability_balanced=balance_sheet.balanced,
             generated_statement_count=5,
+            base_currency=base_currency,
+            foreign_currency_line_count=foreign_currency_line_count,
         ),
         balance_sheet=balance_sheet,
         income_statement=income_statement,
@@ -282,6 +291,11 @@ def _management_summary(
         ],
         risks=risks,
     )
+
+
+def _foreign_currency_line_count(account_set_id: str, period: str, base_currency: str = "CNY") -> int:
+    entries = list_journal_entries(account_set_id, period).entries
+    return sum(1 for entry in entries for line in entry.lines if line.currency != base_currency)
 
 
 def _find_record(period: str) -> MonthlyFinanceRecord:

@@ -75,6 +75,8 @@ class FinancialStatementGenerationSummary(BaseModel):
     reviewed_voucher_count: int
     asset_liability_balanced: bool
     generated_statement_count: int
+    base_currency: str = "CNY"
+    foreign_currency_line_count: int = 0
 
 
 class FinancialStatementBundle(BaseModel):
