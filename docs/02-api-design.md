@@ -177,7 +177,7 @@ POST /api/v1/vouchers/center/{voucher_id}/unpost
 { "operator": "财务主管" }
 ```
 
-过账/反过账接口受 `voucher.post` 和 `voucher.unpost` 权限控制，并记录 `voucher.post` / `voucher.unpost` 审计日志。已关闭会计期间内的凭证不允许继续过账；关闭期间前如果同账套同期间仍有未过账凭证，会返回 `409`。当前过账只是凭证工作流状态，不生成正式不可变总账分录。
+过账/反过账接口受 `voucher.post` 和 `voucher.unpost` 权限控制，并记录 `voucher.post` / `voucher.unpost` 审计日志。已关闭会计期间内的凭证不允许继续过账；关闭期间前如果同账套同期间仍有未过账凭证，会返回 `409`。当前 `post` 会生成正式分录并在凭证记录中返回 `journal_entry_id`，`unpost` 会生成冲销分录并返回 `journal_reversal_entry_id`。
 
 ```text
 POST /api/v1/vouchers/center/import
@@ -187,7 +187,24 @@ POST /api/v1/vouchers/center/{voucher_id}/attachments
 
 分别用于 JSON 批量导入、CSV 导出和附件上传记录。当前附件接口只记录文件元数据与 OCR 接入状态，未做永久文件存储。
 
-当前凭证中心是工作流 MVP，使用本地 SQLite 保存演示凭证、账套标识、审核状态、过账状态、附件元数据和月度编号序列；服务重启后凭证仍保留。账簿读模型可基于已审核凭证生成只读总账、明细账和科目余额表；默认账套、跨境电商账套与会计期间状态用于演示关账控制，该库仍不执行正式结账、反结账或完整多账套核算。
+当前凭证中心是工作流 MVP，使用本地 SQLite 保存演示凭证、账套标识、审核状态、过账状态、附件元数据和月度编号序列；服务重启后凭证仍保留。正式核算一期使用独立 SQLite 正式分录库保存 `journal_entry` / `journal_line`，账簿读模型优先基于正式分录生成总账、明细账和科目余额表；默认账套、跨境电商账套与会计期间状态用于一期关账控制，该库仍不执行完整期末结账、完整反结账或完整多账套核算。
+
+## 正式会计核算引擎一期
+
+```text
+GET /api/v1/accounting/accounts?account_set_id=default
+GET /api/v1/accounting/journal-entries?account_set_id=default&period=2026-06
+GET /api/v1/accounting/journal-entries/{entry_id}
+```
+
+正式过账继续使用：
+
+```text
+POST /api/v1/vouchers/center/{voucher_id}/post
+POST /api/v1/vouchers/center/{voucher_id}/unpost
+```
+
+`post` 会生成正式分录，`unpost` 会生成冲销分录。已关闭期间拒绝正式过账和反过账。正式核算读取接口支持 `X-Actor-Id` 请求头，非 `system` 调用方必须具备 `accounting.account.read` 或 `accounting.entry.read` 权限；成功或拒绝都会记录 `accounting.*` 审计日志。
 
 ## 账簿读模型 MVP
 
@@ -196,7 +213,7 @@ GET /api/v1/ledger/general?period=2026-06
 GET /api/v1/ledger/general?period=2026-06&account_set_id=cross_border
 ```
 
-返回指定期间、指定账套已审核凭证汇总后的总账视图，包括凭证数、分录数、借方合计、贷方合计、平衡状态和科目汇总列表。`account_set_id` 不传时默认为 `default`。
+返回指定期间、指定账套的总账视图，包括来源、凭证数、分录数、借方合计、贷方合计、平衡状态和科目汇总列表。存在正式分录时 `source=formal_journal_entries`；无正式分录时回退已审核凭证，`source=mvp_voucher_workflow`。`account_set_id` 不传时默认为 `default`。
 
 ```text
 GET /api/v1/ledger/detail?period=2026-06&account_code=6602
@@ -225,7 +242,7 @@ POST /api/v1/ledger/periods/{period}/reopen?account_set_id=default
 { "operator": "财务主管" }
 ```
 
-当前账簿接口只读取指定账套内 `reviewed` 状态的凭证中心记录，不读取草稿凭证，不替代正式财务系统中的记账、结账、反结账、完整账套隔离和账簿锁定流程。期间关闭是工作流状态控制，只用于阻止继续过账。
+当前账簿接口优先读取正式分录；无正式分录时读取指定账套内 `reviewed` 状态的凭证中心记录，不读取草稿凭证。该能力仍不替代完整财务系统中的期末结账、完整反结账、完整账套隔离和账簿锁定流程。期间关闭是一控制边界，用于阻止关闭期间继续正式过账。
 账簿读取接口支持 `X-Actor-Id` 请求头，非 `system` 调用方必须具备 `ledger.read` 权限；期间关闭/重开必须具备 `ledger.period.manage` 权限。成功读取或操作会记录 `ledger.general.read`、`ledger.detail.read`、`ledger.account_balances.read`、`ledger.account_sets.read`、`ledger.periods.read`、`ledger.period.close`、`ledger.period.reopen` 审计日志；权限不足会返回 `403` 并记录 `denied` 审计日志。
 
 ## 固定资产台账 MVP
