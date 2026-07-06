@@ -18,6 +18,7 @@ MODULE_REGISTRY: tuple[OsModule, ...] = (
         status="mvp",
         api_prefixes=[
             "/api/v1/vouchers",
+            "/api/v1/accounting",
             "/api/v1/ledger",
             "/api/v1/fixed-assets",
             "/api/v1/payroll",
@@ -32,6 +33,10 @@ MODULE_REGISTRY: tuple[OsModule, ...] = (
             "voucher.unreview",
             "voucher.post",
             "voucher.unpost",
+            "accounting.account.read",
+            "accounting.entry.read",
+            "accounting.entry.post",
+            "accounting.entry.reverse",
             "ledger.account_sets.read",
             "ledger.periods.read",
             "ledger.period.close",
