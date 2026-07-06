@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from app.models.voucher_center import VoucherCenterCreateRequest, VoucherCenterImportRequest, VoucherCenterLine
+from app.services.accounting_archive_service import get_archive_document, reset_accounting_archive_store
 from app.services.voucher_center_service import (
     attach_voucher_file,
     create_voucher,
@@ -63,14 +64,29 @@ def test_update_review_and_unreview_voucher_state_flow():
 
 def test_import_export_and_attachment_record():
     reset_voucher_store()
+    reset_accounting_archive_store()
 
     imported = import_vouchers(VoucherCenterImportRequest(vouchers=[_request("导入凭证一"), _request("导入凭证二")]))
     assert imported.imported_count == 2
     assert imported.vouchers[1].voucher_number == "记-202606-0002"
 
-    attached = attach_voucher_file(imported.vouchers[0].id, filename="invoice.txt", content_type="text/plain", size=128)
-    assert attached.attachments[0].filename == "invoice.txt"
-    assert attached.attachments[0].ocr_status == "text_supported"
+    attached = attach_voucher_file(
+        imported.vouchers[0].id,
+        filename="invoice.txt",
+        content_type="text/plain",
+        size=12,
+        content_bytes=b"invoice text",
+        uploaded_by="finance-user",
+    )
+    attachment = attached.attachments[0]
+    document = get_archive_document(attachment.archive_document_id)
+
+    assert attachment.filename == "invoice.txt"
+    assert attachment.ocr_status == "text_parsed"
+    assert attachment.sha256_hash == document.sha256_hash
+    assert attachment.storage_status == "metadata_only"
+    assert document.source_type == "voucher"
+    assert document.source_id == imported.vouchers[0].id
 
     csv_text = export_vouchers_csv()
     assert "voucher_number,status,voucher_date,summary" in csv_text

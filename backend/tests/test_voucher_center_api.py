@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.accounting_archive_service import reset_accounting_archive_store
 from app.services.voucher_center_service import reset_voucher_store
 
 
@@ -44,6 +45,7 @@ def _payload(summary: str = "办公服务费"):
 
 def test_voucher_center_crud_review_attachment_and_export():
     reset_voucher_store()
+    reset_accounting_archive_store()
 
     create_response = client.post("/api/v1/vouchers/center", json=_payload())
     assert create_response.status_code == 200
@@ -75,7 +77,11 @@ def test_voucher_center_crud_review_attachment_and_export():
         files={"file": ("invoice.txt", b"invoice text", "text/plain")},
     )
     assert attachment_response.status_code == 200
-    assert attachment_response.json()["attachments"][0]["ocr_status"] == "text_supported"
+    attachment = attachment_response.json()["attachments"][0]
+    assert attachment["ocr_status"] == "text_parsed"
+    assert attachment["archive_document_id"]
+    assert attachment["sha256_hash"] == "9adcc70a5f32964ef54c16a3f3e2138f3bfe85e88b12402b248e8f28a1b2a884"
+    assert attachment["storage_status"] == "metadata_only"
 
     list_response = client.get("/api/v1/vouchers/center")
     assert list_response.status_code == 200

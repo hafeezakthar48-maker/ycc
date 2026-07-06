@@ -24,6 +24,9 @@ class VoucherAttachment(BaseModel):
     content_type: str
     size: int
     ocr_status: str
+    archive_document_id: str | None = None
+    sha256_hash: str | None = None
+    storage_status: str = "metadata_only"
 
 
 class VoucherCenterCreateRequest(BaseModel):

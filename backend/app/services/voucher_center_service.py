@@ -12,6 +12,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.models.accounting import JournalEntryCreate, JournalLineCreate
+from app.models.accounting_archive import ArchiveDocumentCreate
 from app.models.audit import AuditRequest, AuditVoucherLine
 from app.models.voucher_center import (
     VoucherAttachment,
@@ -23,6 +24,7 @@ from app.models.voucher_center import (
 )
 from app.services.audit_service import review_audit_subject
 from app.services.accounting_service import post_journal_entry, reverse_journal_entry
+from app.services.accounting_archive_service import create_archive_document
 
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "voucher_center.sqlite3"
@@ -187,19 +189,61 @@ def import_vouchers(request: VoucherCenterImportRequest) -> VoucherCenterImportR
     return VoucherCenterImportResponse(imported_count=len(vouchers), vouchers=vouchers)
 
 
-def attach_voucher_file(voucher_id: str, filename: str, content_type: str, size: int) -> VoucherCenterRecord:
+def attach_voucher_file(
+    voucher_id: str,
+    filename: str,
+    content_type: str,
+    size: int,
+    content_bytes: bytes,
+    uploaded_by: str,
+) -> VoucherCenterRecord:
     voucher = _get_voucher(voucher_id)
+    extracted_text = (
+        content_bytes.decode("utf-8", errors="ignore")
+        if filename.lower().endswith(".txt") or content_type.startswith("text/")
+        else ""
+    )
+    document = create_archive_document(
+        ArchiveDocumentCreate(
+            account_set_id=voucher.account_set_id,
+            period=voucher.voucher_date[:7],
+            source_type="voucher",
+            source_id=voucher.id,
+            document_type=_document_type_from_file(filename, content_type),
+            filename=filename,
+            content_type=content_type,
+            content_bytes=content_bytes,
+            extracted_text=extracted_text,
+            uploaded_by=uploaded_by,
+        )
+    )
     attachment = VoucherAttachment(
         id=f"attachment-{uuid4().hex[:12]}",
         filename=filename,
         content_type=content_type,
         size=size,
-        ocr_status="text_supported" if filename.lower().endswith(".txt") or content_type.startswith("text/") else "ocr_engine_required",
+        ocr_status=document.ocr_status,
+        archive_document_id=document.archive_document_id,
+        sha256_hash=document.sha256_hash,
+        storage_status=document.storage_status,
     )
     updated = voucher.model_copy(update={"attachments": [*voucher.attachments, attachment]})
     with _connection() as connection:
         _save_voucher(connection, updated)
     return updated
+
+
+def _document_type_from_file(filename: str, content_type: str) -> str:
+    lower_name = filename.lower()
+    if "invoice" in lower_name or "发票" in filename:
+        return "invoice"
+    if "receipt" in lower_name or "回单" in filename:
+        return "bank_receipt"
+    if "contract" in lower_name or "合同" in filename:
+        return "contract"
+    if content_type == "application/pdf" or content_type.startswith(("image/", "text/")):
+        return "voucher_attachment"
+    return "other"
 
 
 def export_vouchers_csv() -> str:

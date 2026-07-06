@@ -262,7 +262,10 @@ async def upload_center_voucher_attachment(
         filename=filename,
         content_type=content_type,
         size=len(content),
+        content_bytes=content,
+        uploaded_by=x_actor_id,
     )
+    attachment = voucher.attachments[-1] if voucher.attachments else None
     _record_voucher_audit(
         actor_id=x_actor_id,
         event="voucher.attachment.upload",
@@ -273,6 +276,9 @@ async def upload_center_voucher_attachment(
             "filename": filename,
             "content_type": content_type,
             "size": len(content),
+            "archive_document_id": attachment.archive_document_id if attachment else None,
+            "sha256_hash": attachment.sha256_hash if attachment else None,
+            "storage_status": attachment.storage_status if attachment else None,
         },
     )
     return voucher
