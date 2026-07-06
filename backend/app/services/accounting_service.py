@@ -28,6 +28,7 @@ from app.services.accounting_period_service import is_accounting_period_closed, 
 
 DEFAULT_ACCOUNTING_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "formal_accounting.sqlite3"
 ACCOUNTING_DB_PATH_ENV = "FINANCE_AI_ACCOUNTING_DB_PATH"
+TWO_PLACES = Decimal("0.01")
 
 
 _BASE_ACCOUNTS: tuple[AccountItem, ...] = (
@@ -153,6 +154,7 @@ def post_journal_entry(request: JournalEntryCreate) -> JournalEntryRecord:
         raise HTTPException(status_code=409, detail="会计期间已关闭，不能正式过账。")
     _validate_accounts(request.account_set_id, request.lines)
     _validate_balance(request.lines)
+    _validate_currency_lines(request)
 
     with _connection() as connection:
         existing = connection.execute(
@@ -247,6 +249,25 @@ def _validate_currency(currency_code: str) -> None:
     active_codes = {currency.currency_code for currency in _SUPPORTED_CURRENCIES if currency.is_active}
     if currency_code not in active_codes:
         raise HTTPException(status_code=422, detail=f"不支持的币种：{currency_code}")
+
+
+def _validate_currency_lines(request: JournalEntryCreate) -> None:
+    _validate_currency(request.base_currency)
+    for line in request.lines:
+        _validate_currency(line.currency)
+        expected = (line.original_amount * line.exchange_rate).quantize(TWO_PLACES)
+        if line.base_amount != expected:
+            raise HTTPException(
+                status_code=422,
+                detail=f"折算金额不匹配：{line.account_code} {line.original_amount} {line.currency} * {line.exchange_rate} 应为 {expected}",
+            )
+        if line.currency != request.base_currency:
+            rate = get_exchange_rate(request.account_set_id, request.entry_date, line.currency, request.base_currency)
+            if line.exchange_rate != rate.rate:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"汇率不匹配：{line.currency}->{request.base_currency} {request.entry_date} 应为 {rate.rate}",
+                )
 
 
 def _validate_balance(lines: list[JournalLineCreate]) -> None:
