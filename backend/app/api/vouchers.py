@@ -227,7 +227,7 @@ def unpost_center_voucher(
         target_id=voucher_id,
         metadata={"operator": request.operator},
     )
-    voucher = unpost_voucher(voucher_id)
+    voucher = unpost_voucher(voucher_id, request.operator)
     _record_voucher_audit(
         actor_id=x_actor_id,
         event="voucher.unpost",

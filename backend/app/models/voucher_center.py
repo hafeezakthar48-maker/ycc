@@ -57,6 +57,8 @@ class VoucherCenterRecord(BaseModel):
     posting_status: Literal["unposted", "posted"] = "unposted"
     posted_by: str | None = None
     posted_at: str | None = None
+    journal_entry_id: str | None = None
+    journal_reversal_entry_id: str | None = None
     audit_result: AuditResponse | None = None
     attachments: list[VoucherAttachment] = Field(default_factory=list)
 

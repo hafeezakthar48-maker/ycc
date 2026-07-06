@@ -3,6 +3,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from typing import Iterator
@@ -10,6 +11,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
+from app.models.accounting import JournalEntryCreate, JournalLineCreate
 from app.models.audit import AuditRequest, AuditVoucherLine
 from app.models.voucher_center import (
     VoucherAttachment,
@@ -20,6 +22,7 @@ from app.models.voucher_center import (
     VoucherCenterRecord,
 )
 from app.services.audit_service import review_audit_subject
+from app.services.accounting_service import post_journal_entry, reverse_journal_entry
 
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "voucher_center.sqlite3"
@@ -110,11 +113,37 @@ def post_voucher(voucher_id: str, operator: str) -> VoucherCenterRecord:
 
     if is_accounting_period_closed(voucher.voucher_date[:7], voucher.account_set_id):
         raise HTTPException(status_code=409, detail="会计期间已关闭，不能过账。")
+    journal_entry = post_journal_entry(
+        JournalEntryCreate(
+            account_set_id=voucher.account_set_id,
+            entry_date=voucher.voucher_date,
+            source_type="voucher_center",
+            source_id=voucher.id,
+            description=voucher.summary,
+            base_currency="CNY",
+            created_by=operator,
+            posted_by=operator,
+            lines=[
+                JournalLineCreate(
+                    account_code=line.account_code,
+                    account_name=line.account_name,
+                    direction="debit" if line.direction == "借" else "credit",
+                    currency="CNY",
+                    original_amount=line.amount,
+                    exchange_rate=Decimal("1.000000"),
+                    base_amount=line.amount,
+                    description=line.explanation,
+                )
+                for line in voucher.lines
+            ],
+        )
+    )
     updated = voucher.model_copy(
         update={
             "posting_status": "posted",
             "posted_by": operator,
             "posted_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "journal_entry_id": journal_entry.id,
         }
     )
     with _connection() as connection:
@@ -122,15 +151,19 @@ def post_voucher(voucher_id: str, operator: str) -> VoucherCenterRecord:
     return updated
 
 
-def unpost_voucher(voucher_id: str) -> VoucherCenterRecord:
+def unpost_voucher(voucher_id: str, operator: str = "财务主管") -> VoucherCenterRecord:
     voucher = _get_voucher(voucher_id)
     if voucher.posting_status != "posted":
         raise HTTPException(status_code=409, detail="未过账凭证不能反过账。")
+    if not voucher.journal_entry_id:
+        raise HTTPException(status_code=409, detail="凭证缺少正式分录，不能正式反过账。")
+    reversal = reverse_journal_entry(voucher.journal_entry_id, operator=operator)
     updated = voucher.model_copy(
         update={
             "posting_status": "unposted",
             "posted_by": None,
             "posted_at": None,
+            "journal_reversal_entry_id": reversal.id,
         }
     )
     with _connection() as connection:
