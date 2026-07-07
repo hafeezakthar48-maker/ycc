@@ -45,3 +45,24 @@ class LoanScheduleCreate(BaseModel):
 class LoanSchedule(LoanScheduleCreate):
     status: ScheduleStatus = "active"
     interest_posted_periods: list[str] = Field(default_factory=list)
+
+
+class AccountingScheduleListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    total_schedules: int
+    total_loans: int
+    schedules: list[AccountingSchedule]
+    loan_schedules: list[LoanSchedule]
+
+
+class SchedulePostRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+
+
+class LoanInterestPostRequest(LoanScheduleCreate):
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
