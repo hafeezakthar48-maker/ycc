@@ -4,7 +4,9 @@ from app.models.consolidation import ConsolidationEntity
 from app.services.consolidation_service import (
     build_intercompany_balance_elimination,
     build_intercompany_revenue_cost_elimination,
+    build_investment_equity_elimination,
     build_reporting_package,
+    calculate_minority_interest,
     calculate_unrealized_inventory_profit,
 )
 
@@ -68,3 +70,29 @@ def test_build_intercompany_revenue_cost_elimination_offsets_internal_sales():
     assert entries[0].debit_account_code == "6001"
     assert entries[0].credit_account_code == "6401"
     assert entries[0].amount == Decimal("60000.00")
+
+
+def test_calculate_minority_interest_from_ownership():
+    result = calculate_minority_interest(
+        subsidiary_net_assets=Decimal("1000000.00"),
+        ownership_percentage=Decimal("0.80"),
+    )
+
+    assert result == Decimal("200000.00")
+
+
+def test_build_investment_equity_elimination_offsets_parent_investment():
+    entries = build_investment_equity_elimination(
+        group_id="group-001",
+        period="2026-06",
+        investment_account_code="1511",
+        subsidiary_equity_account_code="4001",
+        investment_amount=Decimal("800000.00"),
+        subsidiary_equity_amount=Decimal("1000000.00"),
+        ownership_percentage=Decimal("0.80"),
+    )
+
+    assert entries[0].elimination_type == "investment_equity"
+    assert entries[0].debit_account_code == "4001"
+    assert entries[0].credit_account_code == "1511"
+    assert entries[0].amount == Decimal("800000.00")

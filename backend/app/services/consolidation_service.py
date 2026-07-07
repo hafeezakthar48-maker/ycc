@@ -63,3 +63,36 @@ def build_intercompany_revenue_cost_elimination(
             explanation="抵销内部销售收入与成本",
         )
     ]
+
+
+def calculate_minority_interest(
+    subsidiary_net_assets: Decimal,
+    ownership_percentage: Decimal,
+) -> Decimal:
+    minority_percentage = Decimal("1") - ownership_percentage
+    return (subsidiary_net_assets * minority_percentage).quantize(Decimal("0.01"))
+
+
+def build_investment_equity_elimination(
+    group_id: str,
+    period: str,
+    investment_account_code: str,
+    subsidiary_equity_account_code: str,
+    investment_amount: Decimal,
+    subsidiary_equity_amount: Decimal,
+    ownership_percentage: Decimal,
+) -> list[ConsolidationEliminationEntry]:
+    attributable_equity = (subsidiary_equity_amount * ownership_percentage).quantize(Decimal("0.01"))
+    elimination_amount = min(investment_amount, attributable_equity).quantize(Decimal("0.01"))
+    return [
+        ConsolidationEliminationEntry(
+            elimination_id=f"elim-{group_id}-{period}-investment-equity",
+            group_id=group_id,
+            period=period,
+            elimination_type="investment_equity",
+            debit_account_code=subsidiary_equity_account_code,
+            credit_account_code=investment_account_code,
+            amount=elimination_amount,
+            explanation="抵销母公司长期股权投资与子公司权益",
+        )
+    ]
