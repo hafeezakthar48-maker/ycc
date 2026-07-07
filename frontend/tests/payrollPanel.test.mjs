@@ -10,9 +10,15 @@ test("AI财务中心接入工资管理面板", async () => {
   assert.match(layout, /PayrollPanel/);
   assert.match(panel, /payroll-panel/);
   assert.match(panel, /calculatePayroll/);
+  assert.match(panel, /fetchPayrollAccountingBatches/);
+  assert.match(panel, /accruePayrollBatch/);
+  assert.match(panel, /payroll-accounting-status-grid/);
   assert.match(panel, /payroll-summary-grid/);
   assert.match(panel, /payroll-employee-table/);
   assert.match(panel, /payroll-department-table/);
   assert.match(panel, /工资计算/);
+  assert.match(panel, /薪酬正式核算/);
+  assert.match(panel, /计提分录/);
+  assert.match(panel, /缴纳状态/);
   assert.match(panel, /部门分析/);
 });

@@ -28,6 +28,7 @@
 - 固定资产台账 MVP：支持新增资产、直线法自动折旧、报废、出售、盘点、账套隔离和审计日志
 - 固定资产正式核算 Phase 10：基于固定资产台账生成资本化、逐资产折旧、减值准备和清理处置正式分录，支持正式卡片追溯和处置损益
 - 工资管理 MVP：支持工资计算、社保、公积金、个税、实发工资、企业成本和部门工资分析
+- 薪酬正式核算 Phase 11：基于工资计算批次生成工资计提、工资发放、个税与社保公积金缴纳正式分录，并展示批次入账状态
 - 财务报表自动生成 MVP：支持资产负债表、利润表、现金流量表、所有者权益变动表、管理报表摘要、快照归档和 Excel/PDF 导出
 - 电子会计档案 Phase 7：凭证附件生成档案文档索引，记录 SHA-256、OCR 状态、验真状态、保管期限，并支持创建案卷和下载归档 ZIP
 - 往来核算 Phase 8：基于正式分录和客户/供应商辅助维度生成应收应付未清项、余额、账龄分析、部分核销和坏账准备期末动作
@@ -35,7 +36,7 @@
 - AI 凭证草稿：支持费用采购、库存采购、销售收入三类场景，自动生成借贷分录草稿、借贷平衡检查、风险提示和法规引用
 - AI 自动审核：审核凭证分录、发票号码、摘要、交易对方、价税勾稽、借贷平衡和增值税科目方向，输出评分、评级、错误清单和整改建议
 
-第一版支持先下载标准模板，再上传 `.xlsx` / `.xlsm` 分析；WPS 表格请先另存为 `.xlsx`。发票图片 / PDF 上传入口已预留，但当前本地环境未内置真实 OCR 引擎，系统会明确提示需接入 OCR 服务，不会伪造图片或 PDF 识别结果。凭证中心当前使用 SQLite 持久化工作流库保存演示凭证、审核状态、过账状态、账套标识、附件元数据和月度编号序列；正式核算一期已新增独立 SQLite 正式分录库，已审核凭证过账会生成 `journal_entry` / `journal_line`，账簿和财务报表优先读取正式分录来源，无正式分录时再回退 MVP 凭证工作流或样例经营数据。电子会计档案当前只保存文档索引、哈希、可选文本摘录和案卷清单，不把原始二进制永久写入数据库，不提供 CA 签章、官方验真或长期冷备。往来核算当前只以正式分录和客户/供应商辅助维度为来源，不从摘要或报表缓存反推；核销只记录未清项匹配关系，不改写历史正式分录。银行对账当前以导入银行流水和正式资金分录为来源，确认记录只追加，不修改银行流水或正式分录。固定资产台账仍为内存 MVP，用于验证资产生命周期、折旧和盘点流程；Phase 10 已将资本化、折旧、减值和处置接入正式分录与 `asset` 辅助维度，正式卡片可追溯来源分录，但仍不提供固定资产卡片附件、复杂融资租赁、资产评估接口、税会差异自动申报或集团跨法人调拨。工资管理当前为简化计算 MVP，用于验证工资、社保、公积金、个税和人工成本分析流程。财务报表当前为单账套、单期间生成 MVP，用于验证报表取数和管理摘要，不替代正式财务报表编制与披露。自动审核只做规则提示和风险定位，不构成最终审计意见。暂不支持 WPS 原生 `.et`、旧版 `.xls`、真实网银直连、自动付款、自动申报税务、每日实时政策同步或自动失效判断。
+第一版支持先下载标准模板，再上传 `.xlsx` / `.xlsm` 分析；WPS 表格请先另存为 `.xlsx`。发票图片 / PDF 上传入口已预留，但当前本地环境未内置真实 OCR 引擎，系统会明确提示需接入 OCR 服务，不会伪造图片或 PDF 识别结果。凭证中心当前使用 SQLite 持久化工作流库保存演示凭证、审核状态、过账状态、账套标识、附件元数据和月度编号序列；正式核算一期已新增独立 SQLite 正式分录库，已审核凭证过账会生成 `journal_entry` / `journal_line`，账簿和财务报表优先读取正式分录来源，无正式分录时再回退 MVP 凭证工作流或样例经营数据。电子会计档案当前只保存文档索引、哈希、可选文本摘录和案卷清单，不把原始二进制永久写入数据库，不提供 CA 签章、官方验真或长期冷备。往来核算当前只以正式分录和客户/供应商辅助维度为来源，不从摘要或报表缓存反推；核销只记录未清项匹配关系，不改写历史正式分录。银行对账当前以导入银行流水和正式资金分录为来源，确认记录只追加，不修改银行流水或正式分录。固定资产台账仍为内存 MVP，用于验证资产生命周期、折旧和盘点流程；Phase 10 已将资本化、折旧、减值和处置接入正式分录与 `asset` 辅助维度，正式卡片可追溯来源分录，但仍不提供固定资产卡片附件、复杂融资租赁、资产评估接口、税会差异自动申报或集团跨法人调拨。工资管理当前为简化计算 MVP，用于验证工资、社保、公积金、个税和人工成本分析流程；Phase 11 已将工资批次计提、发放和薪酬相关款项缴纳接入正式分录，但仍不接真实银行代发、工资条发送或个税正式申报。财务报表当前为单账套、单期间生成 MVP，用于验证报表取数和管理摘要，不替代正式财务报表编制与披露。自动审核只做规则提示和风险定位，不构成最终审计意见。暂不支持 WPS 原生 `.et`、旧版 `.xls`、真实网银直连、自动付款、自动申报税务、每日实时政策同步或自动失效判断。
 
 ## OCR 发票识别
 
@@ -136,6 +137,35 @@ fixed_asset_disposal:{account_set_id}:{period}:{asset_id}
 - 按部门生成工资分析，展示人数、应发、实发和企业成本。
 
 当前个税计算采用月度综合所得简化税率表，默认员工社保 10.5%、企业社保 26.3%、个人/企业公积金各 7%、基本扣除 5000 元；不处理累计预扣预缴、城市差异、封顶基数、补充公积金、年终奖单独计税、专项附加明细校验、银行代发或正式申报。接口受 `payroll.calculate` 权限控制，并记录 `payroll.calculate` 审计日志。
+
+## 薪酬正式核算 Phase 11
+
+当前薪酬正式核算模块支持：
+
+- 基于工资计算结果生成默认工资批次 `PAY-YYYY-MM`。
+- 生成工资和企业社保公积金计提正式分录，借记费用科目，贷记 `2211 应付职工薪酬`。
+- 生成工资发放正式分录，借记 `2211`，贷记个人社保公积金、个税和 `1002 银行存款`。
+- 生成个税、个人社保公积金和企业社保公积金缴纳分录，支持次月缴纳。
+- 前端工资管理面板展示批次状态、计提分录、发放分录、缴纳状态和期间关闭错误提示。
+
+薪酬正式核算接口：
+
+```text
+GET /api/v1/payroll-accounting/batches?account_set_id=default&period=2026-06
+POST /api/v1/payroll-accounting/accruals
+POST /api/v1/payroll-accounting/payments
+POST /api/v1/payroll-accounting/liability-payments
+```
+
+正式分录来源键：
+
+```text
+payroll_accrual:{account_set_id}:{period}:{payroll_batch_id}
+payroll_payment:{account_set_id}:{period}:{payroll_batch_id}
+payroll_liability_payment:{account_set_id}:{payment_period}:{payroll_batch_id}
+```
+
+接口受 `payroll_accounting.read`、`payroll_accounting.accrue`、`payroll_accounting.pay` 和 `payroll_accounting.remit` 权限控制，并记录 `payroll_accounting.*` 审计事件。当前不保存身份证号、银行卡号或手机号明文，不接真实银行代发，不发送工资条，不做累计预扣预缴完整申报。
 
 ## 财务报表自动生成 MVP
 
@@ -331,7 +361,7 @@ npm --prefix frontend run build
 回归命令：
 
 ```powershell
-python -m pytest backend/tests/test_period_close_service.py backend/tests/test_period_close_api.py backend/tests/test_accounting_period_service.py backend/tests/test_accounting_service.py backend/tests/test_fixed_asset_service.py backend/tests/test_payroll_service.py
+python -m pytest backend/tests/test_period_close_service.py backend/tests/test_period_close_api.py backend/tests/test_accounting_period_service.py backend/tests/test_accounting_service.py backend/tests/test_fixed_asset_service.py backend/tests/test_payroll_service.py backend/tests/test_payroll_accounting_service.py backend/tests/test_payroll_accounting_api.py
 npm --prefix frontend test
 npm --prefix frontend run build
 ```

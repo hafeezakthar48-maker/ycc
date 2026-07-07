@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
-import { calculatePayroll, fetchAccountSets } from "../services/dashboardApi";
+import {
+  accruePayrollBatch,
+  calculatePayroll,
+  fetchAccountSets,
+  fetchPayrollAccountingBatches,
+  payPayrollBatch,
+  remitPayrollLiabilities
+} from "../services/dashboardApi";
 import type { AccountSetItem } from "../types/ledger";
+import type { PayrollAccountingBatchListResponse } from "../types/payrollAccounting";
 import type {
   MoneyValue,
   PayrollCalculationResponse,
@@ -70,16 +78,44 @@ function percent(value: MoneyValue | null | undefined) {
   return `${(Number(value ?? 0) * 100).toFixed(0)}%`;
 }
 
+function nextPeriod(period: string) {
+  const [yearValue, monthValue] = period.split("-").map(Number);
+  const nextMonth = monthValue === 12 ? 1 : monthValue + 1;
+  const nextYear = monthValue === 12 ? yearValue + 1 : yearValue;
+  return `${nextYear}-${String(nextMonth).padStart(2, "0")}`;
+}
+
+function payrollAccountingStatusLabel(status: string | null | undefined) {
+  if (status === "paid") {
+    return "已发放";
+  }
+  if (status === "accrued") {
+    return "已计提";
+  }
+  if (status === "reversed") {
+    return "已冲销";
+  }
+  return "已计算";
+}
+
+function liabilityPaymentStatusLabel(status: string | null | undefined) {
+  return status === "remitted" ? "已缴纳" : "待缴纳";
+}
+
 export default function PayrollPanel({ period }: PayrollPanelProps) {
   const [accountSets, setAccountSets] = useState<AccountSetItem[]>([]);
   const [selectedAccountSetId, setSelectedAccountSetId] = useState("default");
   const [employees, setEmployees] = useState<PayrollEmployeeInput[]>(defaultEmployees);
   const [result, setResult] = useState<PayrollCalculationResponse | null>(null);
+  const [payrollAccounting, setPayrollAccounting] = useState<PayrollAccountingBatchListResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [isAccountingBusy, setIsAccountingBusy] = useState(false);
 
   const summary = result?.summary ?? emptySummary;
   const selectedAccountSet = accountSets.find((accountSet) => accountSet.id === selectedAccountSetId) ?? accountSets[0] ?? null;
+  const payrollBatch = payrollAccounting?.batches[0] ?? null;
+  const payrollBatchId = payrollBatch?.payroll_batch_id ?? `PAY-${period}`;
 
   useEffect(() => {
     fetchAccountSets()
@@ -93,6 +129,16 @@ export default function PayrollPanel({ period }: PayrollPanelProps) {
       setSelectedAccountSetId(fallbackAccountSetId);
     }
   }, [accountSets, selectedAccountSetId]);
+
+  useEffect(() => {
+    refreshPayrollAccounting();
+  }, [period, selectedAccountSetId]);
+
+  function refreshPayrollAccounting(accountSetId = selectedAccountSetId) {
+    return fetchPayrollAccountingBatches(accountSetId, period)
+      .then(setPayrollAccounting)
+      .catch(() => setPayrollAccounting(null));
+  }
 
   function updateEmployee(index: number, key: keyof PayrollEmployeeInput, value: string) {
     setEmployees((current) => current.map((employee, employeeIndex) => {
@@ -139,12 +185,68 @@ export default function PayrollPanel({ period }: PayrollPanelProps) {
       operator: "财务主管",
       employees
     })
-      .then(setResult)
+      .then((payload) => {
+        setResult(payload);
+        return refreshPayrollAccounting(selectedAccountSetId);
+      })
       .catch((calculateError) => {
         setError(calculateError instanceof Error ? calculateError.message : "工资计算失败");
       })
       .finally(() => {
         setIsBusy(false);
+      });
+  }
+
+  function handleAccruePayroll() {
+    setIsAccountingBusy(true);
+    setError(null);
+    accruePayrollBatch({
+      account_set_id: selectedAccountSetId,
+      period,
+      payroll_batch_id: payrollBatchId
+    })
+      .then(() => refreshPayrollAccounting(selectedAccountSetId))
+      .catch((actionError) => {
+        setError(actionError instanceof Error ? actionError.message : "工资计提入账失败");
+      })
+      .finally(() => {
+        setIsAccountingBusy(false);
+      });
+  }
+
+  function handlePayPayroll() {
+    setIsAccountingBusy(true);
+    setError(null);
+    payPayrollBatch({
+      account_set_id: selectedAccountSetId,
+      period,
+      payroll_batch_id: payrollBatchId,
+      bank_account_code: "1002"
+    })
+      .then(() => refreshPayrollAccounting(selectedAccountSetId))
+      .catch((actionError) => {
+        setError(actionError instanceof Error ? actionError.message : "工资发放入账失败");
+      })
+      .finally(() => {
+        setIsAccountingBusy(false);
+      });
+  }
+
+  function handleRemitPayrollLiabilities() {
+    setIsAccountingBusy(true);
+    setError(null);
+    remitPayrollLiabilities({
+      account_set_id: selectedAccountSetId,
+      period: nextPeriod(period),
+      payroll_batch_id: payrollBatchId,
+      bank_account_code: "1002"
+    })
+      .then(() => refreshPayrollAccounting(selectedAccountSetId))
+      .catch((actionError) => {
+        setError(actionError instanceof Error ? actionError.message : "薪酬税费缴纳入账失败");
+      })
+      .finally(() => {
+        setIsAccountingBusy(false);
       });
   }
 
@@ -197,6 +299,46 @@ export default function PayrollPanel({ period }: PayrollPanelProps) {
           <strong>{money(summary.employer_cost_total)}</strong>
         </article>
       </div>
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <span className="eyebrow">薪酬正式核算</span>
+            <h3>工资批次入账状态</h3>
+          </div>
+          <div className="payroll-actions">
+            <button type="button" className="button-secondary" onClick={handleAccruePayroll} disabled={isAccountingBusy || !result}>计提入账</button>
+            <button type="button" className="button-secondary" onClick={handlePayPayroll} disabled={isAccountingBusy || !payrollBatch?.accrual_journal_entry_id}>发放入账</button>
+            <button type="button" onClick={handleRemitPayrollLiabilities} disabled={isAccountingBusy || !payrollBatch?.payment_journal_entry_id}>缴纳入账</button>
+          </div>
+        </div>
+        <div className="payroll-accounting-status-grid">
+          <article>
+            <span>批次状态</span>
+            <strong>{payrollAccountingStatusLabel(payrollBatch?.status)}</strong>
+          </article>
+          <article>
+            <span>计提分录</span>
+            <strong>{payrollBatch?.accrual_journal_entry_id ?? "未生成"}</strong>
+          </article>
+          <article>
+            <span>发放分录</span>
+            <strong>{payrollBatch?.payment_journal_entry_id ?? "未生成"}</strong>
+          </article>
+          <article>
+            <span>缴纳状态</span>
+            <strong>{liabilityPaymentStatusLabel(payrollBatch?.liability_payment_status)}</strong>
+          </article>
+          <article>
+            <span>缴纳分录</span>
+            <strong>{payrollBatch?.liability_payment_journal_entry_id ?? "未生成"}</strong>
+          </article>
+          <article>
+            <span>期间关闭提示</span>
+            <strong>{error?.includes("期间") ? error : "开放期间可入账"}</strong>
+          </article>
+        </div>
+      </section>
 
       <section className="panel">
         <div className="panel-header">

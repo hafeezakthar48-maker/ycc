@@ -79,6 +79,13 @@ import type {
 } from "../types/ledger";
 import type { PayrollCalculateRequest, PayrollCalculationResponse } from "../types/payroll";
 import type {
+  PayrollAccountingBatchListResponse,
+  PayrollAccountingEntryResponse,
+  PayrollAccountingPostRequest,
+  PayrollLiabilityPaymentPostRequest,
+  PayrollPaymentPostRequest
+} from "../types/payrollAccounting";
+import type {
   PeriodCloseCheckRequest,
   PeriodCloseCheckResponse,
   PeriodCloseGenerateRequest,
@@ -199,6 +206,21 @@ async function mutatePayrollJson<T>(
       "X-Actor-Id": actorId
     },
     body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    throw new Error(`工资管理 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function requestPayrollJson<T>(
+  path: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    headers: { "X-Actor-Id": actorId }
   });
   if (!response.ok) {
     throw new Error(`工资管理 API 请求失败：${response.status}`);
@@ -910,6 +932,67 @@ export function calculatePayroll(
 ): Promise<PayrollCalculationResponse> {
   return mutatePayrollJson<PayrollCalculationResponse>(
     "/api/v1/payroll/calculate",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchPayrollAccountingBatches(
+  accountSetId: string,
+  period: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<PayrollAccountingBatchListResponse> {
+  const query = new URLSearchParams({ account_set_id: accountSetId, period });
+  return requestPayrollJson<PayrollAccountingBatchListResponse>(
+    `/api/v1/payroll-accounting/batches?${query.toString()}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function accruePayrollBatch(
+  request: PayrollAccountingPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<PayrollAccountingEntryResponse> {
+  return mutatePayrollJson<PayrollAccountingEntryResponse>(
+    "/api/v1/payroll-accounting/accruals",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function payPayrollBatch(
+  request: PayrollPaymentPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<PayrollAccountingEntryResponse> {
+  return mutatePayrollJson<PayrollAccountingEntryResponse>(
+    "/api/v1/payroll-accounting/payments",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function remitPayrollLiabilities(
+  request: PayrollLiabilityPaymentPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<PayrollAccountingEntryResponse> {
+  return mutatePayrollJson<PayrollAccountingEntryResponse>(
+    "/api/v1/payroll-accounting/liability-payments",
     request,
     apiBase,
     fetcher,

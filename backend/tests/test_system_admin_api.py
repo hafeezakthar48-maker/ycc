@@ -30,6 +30,10 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
         "fixed_asset_accounting.impair",
         "fixed_asset_accounting.dispose",
         "payroll.calculate",
+        "payroll_accounting.read",
+        "payroll_accounting.accrue",
+        "payroll_accounting.pay",
+        "payroll_accounting.remit",
         "statement.generate",
         "statement.validate",
         "statement.mapping.view",
@@ -66,6 +70,10 @@ def test_system_admin_lists_permissions_roles_and_users_without_secrets():
     assert "fixed_asset_accounting.impair" in role_by_id["finance_manager"]["permission_codes"]
     assert "fixed_asset_accounting.dispose" in role_by_id["finance_manager"]["permission_codes"]
     assert "payroll.calculate" in role_by_id["finance_manager"]["permission_codes"]
+    assert "payroll_accounting.read" in role_by_id["finance_manager"]["permission_codes"]
+    assert "payroll_accounting.accrue" in role_by_id["finance_manager"]["permission_codes"]
+    assert "payroll_accounting.pay" in role_by_id["finance_manager"]["permission_codes"]
+    assert "payroll_accounting.remit" in role_by_id["finance_manager"]["permission_codes"]
     assert "statement.generate" in role_by_id["finance_manager"]["permission_codes"]
     assert "statement.validate" in role_by_id["finance_manager"]["permission_codes"]
     assert "statement.mapping.view" in role_by_id["finance_manager"]["permission_codes"]

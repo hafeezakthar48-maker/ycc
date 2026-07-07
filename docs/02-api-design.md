@@ -828,6 +828,71 @@ POST /api/v1/payroll/calculate
 
 当前工资接口采用 MVP 简化口径：员工社保 10.5%、企业社保 26.3%、个人/企业公积金各 7%、基本扣除 5000 元和月度综合所得税率表；不处理累计预扣预缴、城市差异、封顶基数、年终奖单独计税、银行代发、工资条发送、个税正式申报或工资凭证自动生成。接口支持 `X-Actor-Id` 请求头，非 `system` 调用方必须具备 `payroll.calculate` 权限；成功或权限不足都会记录 `payroll.calculate` 审计日志。
 
+## 薪酬正式核算 Phase 11
+
+```text
+GET /api/v1/payroll-accounting/batches?account_set_id=default&period=2026-06
+POST /api/v1/payroll-accounting/accruals
+POST /api/v1/payroll-accounting/payments
+POST /api/v1/payroll-accounting/liability-payments
+```
+
+批次查询返回指定账套和期间的工资批次正式核算状态：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "total": 1,
+  "batches": [
+    {
+      "payroll_batch_id": "PAY-2026-06",
+      "status": "paid",
+      "accrual_journal_entry_id": "je-xxx",
+      "payment_journal_entry_id": "je-yyy",
+      "liability_payment_status": "remitted",
+      "liability_payment_journal_entry_id": "je-zzz"
+    }
+  ]
+}
+```
+
+计提请求：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "payroll_batch_id": "PAY-2026-06"
+}
+```
+
+发放请求：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "payroll_batch_id": "PAY-2026-06",
+  "bank_account_code": "1002"
+}
+```
+
+缴纳请求：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-07",
+  "payroll_batch_id": "PAY-2026-06",
+  "bank_account_code": "1002"
+}
+```
+
+来源键分别为 `payroll_accrual:{account_set_id}:{period}:{payroll_batch_id}`、`payroll_payment:{account_set_id}:{period}:{payroll_batch_id}` 和 `payroll_liability_payment:{account_set_id}:{payment_period}:{payroll_batch_id}`。同一来源键重复调用返回既有正式分录；已关闭期间拒绝新增计提、发放或缴纳分录。接口支持 `X-Actor-Id` 请求头，分别受 `payroll_accounting.read`、`payroll_accounting.accrue`、`payroll_accounting.pay`、`payroll_accounting.remit` 权限控制，并记录 `payroll_accounting.batch.read`、`payroll_accounting.accrual.post`、`payroll_accounting.payment.post`、`payroll_accounting.liability_payment.post` 审计事件。
+
+当前不接真实银行代发，不保存身份证号、银行卡号或手机号明文，不发送工资条，不做累计预扣预缴完整申报。
+
 ## 财务报表自动生成 MVP
 
 ```text

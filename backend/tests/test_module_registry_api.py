@@ -71,7 +71,9 @@ def test_finance_center_registry_declares_ledger_read_model_api():
     assert "/api/v1/receivable-payable" in module["api_prefixes"]
     assert "/api/v1/bank-reconciliation" in module["api_prefixes"]
     assert "/api/v1/fixed-asset-accounting" in module["api_prefixes"]
+    assert "/api/v1/payroll-accounting" in module["api_prefixes"]
     assert "银行对账" in module["capabilities"]
+    assert "薪酬正式核算" in module["capabilities"]
     assert {
         "archive.document.list",
         "archive.document.get",
@@ -98,6 +100,12 @@ def test_finance_center_registry_declares_ledger_read_model_api():
         "fixed_asset_accounting.depreciation.post",
         "fixed_asset_accounting.impairment.post",
         "fixed_asset_accounting.disposal.post",
+    }.issubset(set(module["audit_events"]))
+    assert {
+        "payroll_accounting.batch.read",
+        "payroll_accounting.accrual.post",
+        "payroll_accounting.payment.post",
+        "payroll_accounting.liability_payment.post",
     }.issubset(set(module["audit_events"]))
     assert "/api/v1/period-close" in module["api_prefixes"]
     assert {

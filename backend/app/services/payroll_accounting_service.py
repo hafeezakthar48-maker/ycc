@@ -4,7 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from fastapi import HTTPException
 
 from app.models.accounting import JournalEntryCreate, JournalEntryRecord, JournalLineCreate
-from app.models.payroll_accounting import PayrollAccountingBatch, PayrollAccountingBatchCreate
+from app.models.payroll_accounting import PayrollAccountingBatch, PayrollAccountingBatchCreate, PayrollAccountingBatchListResponse
 from app.services.accounting_period_service import validate_account_set
 from app.services.accounting_service import get_chart_of_accounts, list_journal_entries, post_journal_entry
 from app.services.payroll_service import get_payroll_calculation
@@ -38,12 +38,29 @@ def get_payroll_accounting_batch(
     )
     accrual_entry = _existing_entry(account_set_id, period, "payroll_accrual", _source_id("payroll_accrual", account_set_id, period, payroll_batch_id))
     payment_entry = _existing_entry(account_set_id, period, "payroll_payment", _source_id("payroll_payment", account_set_id, period, payroll_batch_id))
+    liability_payment_entry = _existing_liability_payment_entry(account_set_id, payroll_batch_id)
     status = "paid" if payment_entry else "accrued" if accrual_entry else "calculated"
     return PayrollAccountingBatch(
         **create_payload.model_dump(),
         status=status,
         accrual_journal_entry_id=accrual_entry.id if accrual_entry else None,
         payment_journal_entry_id=payment_entry.id if payment_entry else None,
+        liability_payment_status="remitted" if liability_payment_entry else "pending",
+        liability_payment_journal_entry_id=liability_payment_entry.id if liability_payment_entry else None,
+    )
+
+
+def list_payroll_accounting_batches(account_set_id: str, period: str) -> PayrollAccountingBatchListResponse:
+    validate_account_set(account_set_id)
+    if get_payroll_calculation(account_set_id, period) is None:
+        batches: list[PayrollAccountingBatch] = []
+    else:
+        batches = [get_payroll_accounting_batch(account_set_id, period, f"PAY-{period}")]
+    return PayrollAccountingBatchListResponse(
+        account_set_id=account_set_id,
+        period=period,
+        total=len(batches),
+        batches=batches,
     )
 
 
@@ -199,6 +216,21 @@ def _existing_entry(
             entry
             for entry in list_journal_entries(account_set_id, period).entries
             if entry.status == "posted" and entry.source_type == source_type and entry.source_id == source_id
+        ),
+        None,
+    )
+
+
+def _existing_liability_payment_entry(account_set_id: str, payroll_batch_id: str) -> JournalEntryRecord | None:
+    source_prefix = f"payroll_liability_payment:{account_set_id}:"
+    return next(
+        (
+            entry
+            for entry in list_journal_entries(account_set_id).entries
+            if entry.status == "posted"
+            and entry.source_type == "payroll_liability_payment"
+            and entry.source_id.startswith(source_prefix)
+            and entry.source_id.endswith(f":{payroll_batch_id}")
         ),
         None,
     )

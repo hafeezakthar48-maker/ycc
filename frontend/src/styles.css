@@ -1767,13 +1767,19 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.payroll-summary-grid {
+.payroll-summary-grid,
+.payroll-accounting-status-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
-.payroll-summary-grid article {
+.payroll-accounting-status-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payroll-summary-grid article,
+.payroll-accounting-status-grid article {
   display: grid;
   gap: 6px;
   min-height: 92px;
@@ -1785,16 +1791,24 @@ button:disabled {
   box-shadow: 0 10px 24px rgba(17, 24, 39, 0.04);
 }
 
-.payroll-summary-grid span {
+.payroll-summary-grid span,
+.payroll-accounting-status-grid span {
   color: #697586;
   font-size: 12px;
   font-weight: 800;
 }
 
-.payroll-summary-grid strong {
+.payroll-summary-grid strong,
+.payroll-accounting-status-grid strong {
   color: #172033;
   font-size: 24px;
   line-height: 1;
+}
+
+.payroll-accounting-status-grid strong {
+  font-size: 15px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .payroll-input-table {
@@ -2929,6 +2943,7 @@ details ul {
   .bank-reconciliation-summary-grid,
   .fixed-asset-summary-grid,
   .payroll-summary-grid,
+  .payroll-accounting-status-grid,
   .financial-statement-summary-grid,
   .statement-archive-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3025,6 +3040,7 @@ details ul {
   .bank-reconciliation-summary-grid,
   .fixed-asset-summary-grid,
   .payroll-summary-grid,
+  .payroll-accounting-status-grid,
   .financial-statement-summary-grid,
   .statement-archive-summary-grid,
   .voucher-center-form,
