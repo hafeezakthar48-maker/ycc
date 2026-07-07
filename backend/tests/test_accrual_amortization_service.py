@@ -1,11 +1,14 @@
 from decimal import Decimal
 
-from app.models.accrual_amortization import AccountingScheduleCreate
+from app.models.accrual_amortization import AccountingScheduleCreate, LoanScheduleCreate
 from app.services.accounting_period_service import reset_accounting_period_store
 from app.services.accounting_service import list_journal_entries, reset_accounting_store
 from app.services.accrual_amortization_service import (
     calculate_even_monthly_amount,
+    calculate_monthly_interest,
     create_accounting_schedule,
+    create_loan_schedule,
+    post_loan_interest_accrual,
     post_schedule_for_period,
     reset_accrual_amortization_store,
 )
@@ -39,6 +42,12 @@ def test_calculate_even_monthly_amount_rounds_to_cents():
     assert result == [Decimal("3333.33"), Decimal("3333.33"), Decimal("3333.34")]
 
 
+def test_calculate_monthly_interest_uses_annual_rate():
+    amount = calculate_monthly_interest(Decimal("1000000.00"), Decimal("0.036"))
+
+    assert amount == Decimal("3000.00")
+
+
 def test_post_prepaid_amortization_for_period_uses_schedule_source_key():
     create_accounting_schedule(
         AccountingScheduleCreate(
@@ -65,3 +74,26 @@ def test_post_prepaid_amortization_for_period_uses_schedule_source_key():
         ("1801", "credit", Decimal("1000.00")),
     ]
     assert [entry.source_type for entry in entries].count("prepaid_amortization") == 1
+
+
+def test_post_loan_interest_accrual_uses_principal_and_rate():
+    create_loan_schedule(
+        LoanScheduleCreate(
+            account_set_id="default",
+            loan_code="LOAN-2026-001",
+            principal=Decimal("1000000.00"),
+            annual_rate=Decimal("0.036"),
+            start_period="2026-06",
+            end_period="2026-12",
+        )
+    )
+
+    entry = post_loan_interest_accrual("default", "LOAN-2026-001", "2026-06", "close-user")
+    duplicate = post_loan_interest_accrual("default", "LOAN-2026-001", "2026-06", "close-user")
+
+    assert entry.source_id == "loan_interest_accrual:default:2026-06:LOAN-2026-001"
+    assert duplicate.id == entry.id
+    assert [(line.account_code, line.direction, line.base_amount) for line in entry.lines] == [
+        ("6603", "debit", Decimal("3000.00")),
+        ("2231", "credit", Decimal("3000.00")),
+    ]

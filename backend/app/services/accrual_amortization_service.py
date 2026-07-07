@@ -4,17 +4,19 @@ from decimal import Decimal
 from fastapi import HTTPException
 
 from app.models.accounting import JournalEntryCreate, JournalLineCreate
-from app.models.accrual_amortization import AccountingSchedule, AccountingScheduleCreate
+from app.models.accrual_amortization import AccountingSchedule, AccountingScheduleCreate, LoanSchedule, LoanScheduleCreate
 from app.services.accounting_period_service import is_accounting_period_closed, validate_account_set
 from app.services.accounting_service import get_chart_of_accounts, list_journal_entries, post_journal_entry
 
 
 MONEY_QUANT = Decimal("0.01")
 _ACCOUNTING_SCHEDULES: dict[str, AccountingSchedule] = {}
+_LOAN_SCHEDULES: dict[str, LoanSchedule] = {}
 
 
 def reset_accrual_amortization_store() -> None:
     _ACCOUNTING_SCHEDULES.clear()
+    _LOAN_SCHEDULES.clear()
 
 
 def create_accounting_schedule(payload: AccountingScheduleCreate) -> AccountingSchedule:
@@ -41,6 +43,30 @@ def list_accounting_schedules(account_set_id: str = "default") -> list[Accountin
     return schedules
 
 
+def create_loan_schedule(payload: LoanScheduleCreate) -> LoanSchedule:
+    validate_account_set(payload.account_set_id)
+    if payload.end_period < payload.start_period:
+        raise HTTPException(status_code=422, detail="借款结束期间不能早于开始期间。")
+    loan = LoanSchedule(**payload.model_dump())
+    _LOAN_SCHEDULES[_loan_key(loan.account_set_id, loan.loan_code)] = loan
+    return loan
+
+
+def get_loan_schedule(account_set_id: str, loan_code: str) -> LoanSchedule:
+    validate_account_set(account_set_id)
+    loan = _LOAN_SCHEDULES.get(_loan_key(account_set_id, loan_code))
+    if loan is None:
+        raise HTTPException(status_code=404, detail="借款计划不存在。")
+    return loan
+
+
+def list_loan_schedules(account_set_id: str = "default") -> list[LoanSchedule]:
+    validate_account_set(account_set_id)
+    loans = [loan for loan in _LOAN_SCHEDULES.values() if loan.account_set_id == account_set_id]
+    loans.sort(key=lambda item: item.loan_code)
+    return loans
+
+
 def calculate_even_monthly_amount(total_amount: Decimal, months: int) -> list[Decimal]:
     if months <= 0:
         raise HTTPException(status_code=422, detail="分摊月份数必须大于 0。")
@@ -49,6 +75,10 @@ def calculate_even_monthly_amount(total_amount: Decimal, months: int) -> list[De
     difference = total_amount - sum(amounts)
     amounts[-1] = (amounts[-1] + difference).quantize(Decimal("0.01"))
     return amounts
+
+
+def calculate_monthly_interest(principal: Decimal, annual_rate: Decimal) -> Decimal:
+    return (principal * annual_rate / Decimal("12")).quantize(MONEY_QUANT)
 
 
 def get_schedule_amount_for_period(schedule: AccountingSchedule, period: str) -> Decimal:
@@ -89,6 +119,42 @@ def post_schedule_for_period(account_set_id: str, schedule_code: str, period: st
         )
     )
     _mark_schedule_posted(schedule, period)
+    return entry
+
+
+def post_loan_interest_accrual(account_set_id: str, loan_code: str, period: str, actor_id: str):
+    _validate_period_open(account_set_id, period)
+    loan = get_loan_schedule(account_set_id, loan_code)
+    if loan.status != "active":
+        raise HTTPException(status_code=409, detail="借款计划未启用，不能计提利息。")
+    if not (loan.start_period <= period <= loan.end_period):
+        raise HTTPException(status_code=422, detail="期间不在借款计划范围内。")
+
+    interest = calculate_monthly_interest(loan.principal, loan.annual_rate)
+    source_type = "loan_interest_accrual"
+    source_id = f"{source_type}:{account_set_id}:{period}:{loan_code}"
+    existing = _existing_entry(account_set_id, period, source_type, source_id)
+    if existing is not None:
+        return existing
+
+    account_names = _account_names(account_set_id)
+    entry = post_journal_entry(
+        JournalEntryCreate(
+            account_set_id=account_set_id,
+            entry_date=_period_end_date(period),
+            source_type=source_type,
+            source_id=source_id,
+            description=f"{period} {loan.loan_code} 借款利息计提",
+            base_currency="CNY",
+            created_by=actor_id,
+            posted_by=actor_id,
+            lines=[
+                _journal_line(loan.interest_expense_account_code, account_names, "debit", interest, "计提借款利息"),
+                _journal_line(loan.interest_payable_account_code, account_names, "credit", interest, "应付借款利息"),
+            ],
+        )
+    )
+    _mark_loan_interest_posted(loan, period)
     return entry
 
 
@@ -137,6 +203,13 @@ def _mark_schedule_posted(schedule: AccountingSchedule, period: str) -> None:
     _ACCOUNTING_SCHEDULES[_schedule_key(schedule.account_set_id, schedule.schedule_code)] = updated
 
 
+def _mark_loan_interest_posted(loan: LoanSchedule, period: str) -> None:
+    if period in loan.interest_posted_periods:
+        return
+    updated = loan.model_copy(update={"interest_posted_periods": [*loan.interest_posted_periods, period]})
+    _LOAN_SCHEDULES[_loan_key(loan.account_set_id, loan.loan_code)] = updated
+
+
 def _periods_between(start_period: str, end_period: str) -> list[str]:
     start_year, start_month = [int(part) for part in start_period.split("-")]
     end_year, end_month = [int(part) for part in end_period.split("-")]
@@ -160,3 +233,7 @@ def _period_end_date(period: str) -> str:
 
 def _schedule_key(account_set_id: str, schedule_code: str) -> str:
     return f"{account_set_id}:{schedule_code}"
+
+
+def _loan_key(account_set_id: str, loan_code: str) -> str:
+    return f"{account_set_id}:{loan_code}"

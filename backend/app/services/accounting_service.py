@@ -64,6 +64,7 @@ _BASE_ACCOUNTS: tuple[AccountItem, ...] = (
     AccountItem(account_set_id="default", account_code="222102", account_name="应交税费-未交增值税", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="222103", account_name="应交税费-城建税及教育费附加", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="222104", account_name="应交税费-企业所得税", account_type="liability", normal_balance="credit"),
+    AccountItem(account_set_id="default", account_code="2231", account_name="应付利息", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="2241", account_name="其他应付款", account_type="liability", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="4001", account_name="实收资本", account_type="equity", normal_balance="credit"),
     AccountItem(account_set_id="default", account_code="4103", account_name="本年利润", account_type="equity", normal_balance="credit"),
