@@ -122,6 +122,8 @@ def test_generate_payroll_accrual_action_uses_calculated_payroll_summary():
 
     assert results[0].status == "generated"
     assert results[0].amount == Decimal("13330.00")
+    entry = next(entry for entry in list_journal_entries("default", "2026-06").entries if entry.source_type == "payroll_accrual")
+    assert entry.source_id == "payroll_accrual:default:2026-06:PAY-2026-06"
 
 
 def test_generate_tax_accrual_action_uses_configured_rule():

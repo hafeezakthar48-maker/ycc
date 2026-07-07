@@ -49,6 +49,11 @@ def calculate_payroll(request: PayrollCalculateRequest) -> PayrollCalculationRes
     return response
 
 
+def get_payroll_calculation(account_set_id: str, period: str) -> PayrollCalculationResponse | None:
+    validate_account_set(account_set_id)
+    return _payroll_calculations.get((account_set_id, period))
+
+
 def get_period_payroll_accrual_summary(account_set_id: str, period: str) -> list[dict]:
     validate_account_set(account_set_id)
     response = _payroll_calculations.get((account_set_id, period))

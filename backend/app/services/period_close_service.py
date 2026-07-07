@@ -199,28 +199,20 @@ def _generate_fixed_asset_depreciation(
 
 def _generate_payroll_accrual(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:
     source_type = "payroll_accrual"
-    source_id = f"{source_type}:{account_set_id}:{period}"
+    payroll_batch_id = f"PAY-{period}"
+    source_id = f"{source_type}:{account_set_id}:{period}:{payroll_batch_id}"
     existing = _existing_entries(account_set_id, period, source_type, source_id)
     if existing:
         return _action_result(source_type, "existing", existing, _entry_amount(existing), "工资计提分录已存在。")
 
-    from app.services.payroll_service import get_period_payroll_accrual_summary
+    from app.services.payroll_accounting_service import accrue_payroll_batch
+    from app.services.payroll_service import get_payroll_calculation
 
-    rows = get_period_payroll_accrual_summary(account_set_id, period)
-    amount = _money(sum((row["amount"] for row in rows), Decimal("0.00")))
-    if amount <= Decimal("0.00"):
-        return _action_result(source_type, "skipped", [], amount, "本期间没有可计提的工资摘要。")
+    if get_payroll_calculation(account_set_id, period) is None:
+        return _action_result(source_type, "skipped", [], Decimal("0.00"), "本期间没有可计提的工资摘要。")
 
-    entry = _post_grouped_entry(
-        account_set_id=account_set_id,
-        period=period,
-        source_type=source_type,
-        source_id=source_id,
-        description=f"{period} 工资薪酬计提",
-        generated_by=generated_by,
-        debit_rows=[(row["debit_account_code"], row["amount"], f"{row['department']} 工资成本") for row in rows],
-        credit_rows=[(row["credit_account_code"], row["amount"], f"{row['department']} 应付职工薪酬") for row in rows],
-    )
+    entry = accrue_payroll_batch(account_set_id, period, payroll_batch_id, generated_by)
+    amount = _entry_amount([entry])
     return _action_result(source_type, "generated", [entry], amount, "已生成工资薪酬计提分录。")
 
 
