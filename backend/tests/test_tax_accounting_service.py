@@ -4,8 +4,10 @@ from app.models.tax_accounting import VatLedgerLine
 from app.services.accounting_period_service import reset_accounting_period_store
 from app.services.accounting_service import list_journal_entries, reset_accounting_store
 from app.services.tax_accounting_service import (
+    calculate_income_tax_payable,
     calculate_surtax,
     calculate_vat_payable,
+    post_income_tax_accrual,
     post_surtax_accrual,
     post_unpaid_vat_transfer,
 )
@@ -95,4 +97,31 @@ def test_post_surtax_accrual_posts_tax_and_surcharge_liability():
     assert [(line.account_code, line.direction, line.base_amount) for line in entry.lines] == [
         ("6403", "debit", Decimal("120.00")),
         ("222103", "credit", Decimal("120.00")),
+    ]
+
+
+def test_calculate_income_tax_payable_uses_tax_adjustments():
+    result = calculate_income_tax_payable(
+        accounting_profit=Decimal("100000.00"),
+        taxable_increase=Decimal("5000.00"),
+        taxable_decrease=Decimal("10000.00"),
+        tax_rate=Decimal("0.25"),
+    )
+
+    assert result.taxable_income == Decimal("95000.00")
+    assert result.income_tax_payable == Decimal("23750.00")
+
+
+def test_post_income_tax_accrual_posts_income_tax_expense():
+    entry = post_income_tax_accrual(
+        account_set_id="default",
+        period="2026-06",
+        amount=Decimal("23750.00"),
+        actor_id="tax-user",
+    )
+
+    assert entry.source_id == "tax_income_tax_accrual:default:2026-06"
+    assert [(line.account_code, line.direction, line.base_amount) for line in entry.lines] == [
+        ("6801", "debit", Decimal("23750.00")),
+        ("222104", "credit", Decimal("23750.00")),
     ]

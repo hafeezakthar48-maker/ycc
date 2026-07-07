@@ -78,6 +78,7 @@ _BASE_ACCOUNTS: tuple[AccountItem, ...] = (
     AccountItem(account_set_id="default", account_code="6603", account_name="财务费用", account_type="expense", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="6701", account_name="资产减值损失", account_type="expense", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="6711", account_name="营业外支出", account_type="expense", normal_balance="debit"),
+    AccountItem(account_set_id="default", account_code="6801", account_name="所得税费用", account_type="expense", normal_balance="debit"),
     AccountItem(account_set_id="default", account_code="6901", account_name="所得税费用", account_type="expense", normal_balance="debit"),
 )
 
@@ -469,7 +470,7 @@ def get_foreign_currency_balances(account_set_id: str, period: str) -> list[dict
 
 def get_profit_loss_balances(account_set_id: str, period: str) -> list[dict]:
     validate_account_set(account_set_id)
-    profit_loss_codes = {"6001", "6051", "6301", "6401", "6402", "6403", "6601", "6602", "6603", "6701", "6711", "6901"}
+    profit_loss_codes = {"6001", "6051", "6301", "6401", "6402", "6403", "6601", "6602", "6603", "6701", "6711", "6801", "6901"}
     account_map = {account.account_code: account for account in get_chart_of_accounts(account_set_id).accounts}
     balances: dict[str, dict] = {}
     for entry in list_journal_entries(account_set_id, period).entries:
