@@ -5,9 +5,19 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.models.accounting import AuxiliaryDimensionCreate, JournalEntryCreate, JournalLineCreate, JournalLineDimension
-from app.models.inventory_accounting import InventoryBalance, InventoryMovement, InventorySalesIssueResult
+from app.models.inventory_accounting import (
+    InventoryBalance,
+    InventoryCountVarianceResult,
+    InventoryMovement,
+    InventorySalesIssueResult,
+)
 from app.services.accounting_period_service import is_accounting_period_closed, validate_account_set
-from app.services.accounting_service import get_chart_of_accounts, post_journal_entry, upsert_auxiliary_dimension
+from app.services.accounting_service import (
+    get_chart_of_accounts,
+    list_journal_entries,
+    post_journal_entry,
+    upsert_auxiliary_dimension,
+)
 
 
 MONEY_QUANT = Decimal("0.01")
@@ -190,6 +200,164 @@ def ensure_available_stock(balance: InventoryBalance, issue_quantity: Decimal) -
         raise HTTPException(status_code=409, detail="库存数量不足，不能结转销售成本。")
 
 
+def record_inventory_impairment(
+    account_set_id: str,
+    sku_id: str,
+    period: str,
+    amount: Decimal,
+    actor_id: str,
+):
+    _validate_period_open(account_set_id, period)
+    amount = _money(amount)
+    if amount <= Decimal("0.00"):
+        raise HTTPException(status_code=422, detail="跌价准备金额必须大于 0。")
+    source_type = "inventory_impairment"
+    source_id = f"{source_type}:{account_set_id}:{period}:{sku_id}"
+    existing = _existing_entry(account_set_id, period, source_type, source_id)
+    if existing is not None:
+        return existing
+
+    _ensure_sku_dimension(account_set_id, sku_id)
+    return post_journal_entry(
+        JournalEntryCreate(
+            account_set_id=account_set_id,
+            entry_date=_period_end_date(period),
+            source_type=source_type,
+            source_id=source_id,
+            description=f"{period} {sku_id} 存货跌价准备",
+            base_currency="CNY",
+            created_by=actor_id,
+            posted_by=actor_id,
+            lines=build_inventory_impairment_lines(account_set_id, amount, sku_id),
+        )
+    )
+
+
+def record_inventory_count_variance(
+    account_set_id: str,
+    sku_id: str,
+    warehouse_id: str,
+    period: str,
+    actual_quantity: Decimal,
+    actor_id: str,
+    approved_by: str,
+    approved_at: str,
+) -> InventoryCountVarianceResult:
+    _validate_period_open(account_set_id, period)
+    actual_quantity = _quantity(actual_quantity)
+    if actual_quantity < Decimal("0.0000"):
+        raise HTTPException(status_code=422, detail="盘点实盘数量不能小于 0。")
+    if not approved_by or not approved_at:
+        raise HTTPException(status_code=422, detail="盘点差异必须保留审批人和审批时间。")
+
+    _ensure_dimensions(account_set_id, sku_id, warehouse_id)
+    balance = get_inventory_balance(account_set_id, sku_id, warehouse_id)
+    variance_quantity = _quantity(actual_quantity - balance.quantity)
+    variance_type = "gain" if variance_quantity > Decimal("0.0000") else "loss" if variance_quantity < Decimal("0.0000") else "none"
+    source_type = "inventory_count_variance"
+    source_id = f"{source_type}:{account_set_id}:{period}:{sku_id}:{warehouse_id}"
+    if variance_type == "none":
+        return InventoryCountVarianceResult(
+            account_set_id=account_set_id,
+            sku_id=sku_id,
+            warehouse_id=warehouse_id,
+            period=period,
+            variance_type="none",
+            book_quantity=balance.quantity,
+            actual_quantity=actual_quantity,
+            variance_quantity=Decimal("0.0000"),
+            variance_amount=Decimal("0.00"),
+            source_id=source_id,
+            approved_by=approved_by,
+            approved_at=approved_at,
+        )
+
+    unit_cost = _money(balance.moving_average_cost)
+    variance_amount = _money(abs(variance_quantity) * unit_cost)
+    existing = _existing_entry(account_set_id, period, source_type, source_id)
+    if existing is not None:
+        return InventoryCountVarianceResult(
+            account_set_id=account_set_id,
+            sku_id=sku_id,
+            warehouse_id=warehouse_id,
+            period=period,
+            variance_type=variance_type,
+            book_quantity=balance.quantity,
+            actual_quantity=actual_quantity,
+            variance_quantity=variance_quantity,
+            variance_amount=variance_amount,
+            source_id=source_id,
+            approved_by=approved_by,
+            approved_at=approved_at,
+            journal_entry_id=existing.id,
+        )
+
+    entry = post_journal_entry(
+        JournalEntryCreate(
+            account_set_id=account_set_id,
+            entry_date=_period_end_date(period),
+            source_type=source_type,
+            source_id=source_id,
+            description=f"{period} {sku_id} 盘点差异，审批人：{approved_by}，审批时间：{approved_at}",
+            base_currency="CNY",
+            created_by=actor_id,
+            posted_by=actor_id,
+            lines=build_inventory_count_variance_lines(
+                account_set_id=account_set_id,
+                variance_type=variance_type,
+                variance_amount=variance_amount,
+                sku_id=sku_id,
+                warehouse_id=warehouse_id,
+            ),
+        )
+    )
+    movement = InventoryMovement(
+        movement_id=f"im-{uuid4().hex[:12]}",
+        account_set_id=account_set_id,
+        sku_id=sku_id,
+        warehouse_id=warehouse_id,
+        movement_date=_period_end_date(period),
+        movement_type="adjustment_in" if variance_type == "gain" else "adjustment_out",
+        quantity=abs(variance_quantity),
+        amount=variance_amount,
+        source_id=source_id,
+        unit_cost=unit_cost,
+        journal_entry_id=entry.id,
+    )
+    _INVENTORY_MOVEMENTS.append(movement)
+    new_amount = _money(balance.amount + variance_amount) if variance_type == "gain" else _money(balance.amount - variance_amount)
+    if new_amount < Decimal("0.00"):
+        raise HTTPException(status_code=409, detail="盘点差异会导致库存金额为负，不能入账。")
+    _INVENTORY_BALANCES[_balance_key(account_set_id, sku_id, warehouse_id)] = InventoryBalance(
+        account_set_id=account_set_id,
+        sku_id=sku_id,
+        warehouse_id=warehouse_id,
+        quantity=actual_quantity,
+        amount=new_amount,
+        moving_average_cost=calculate_moving_average_cost(
+            existing_quantity=Decimal("0.0000"),
+            existing_amount=Decimal("0.00"),
+            receipt_quantity=actual_quantity,
+            receipt_amount=new_amount,
+        ),
+    )
+    return InventoryCountVarianceResult(
+        account_set_id=account_set_id,
+        sku_id=sku_id,
+        warehouse_id=warehouse_id,
+        period=period,
+        variance_type=variance_type,
+        book_quantity=balance.quantity,
+        actual_quantity=actual_quantity,
+        variance_quantity=variance_quantity,
+        variance_amount=variance_amount,
+        source_id=source_id,
+        approved_by=approved_by,
+        approved_at=approved_at,
+        journal_entry_id=entry.id,
+    )
+
+
 def build_purchase_receipt_lines(
     account_set_id: str,
     amount: Decimal,
@@ -258,6 +426,68 @@ def build_sales_issue_lines(
     ]
 
 
+def build_inventory_impairment_lines(
+    account_set_id: str,
+    amount: Decimal,
+    sku_id: str,
+) -> list[JournalLineCreate]:
+    account_names = _account_names(account_set_id)
+    dimensions = [JournalLineDimension(dimension_type="sku", dimension_code=sku_id)]
+    return [
+        JournalLineCreate(
+            account_code="6701",
+            account_name=account_names.get("6701", "资产减值损失"),
+            direction="debit",
+            original_amount=_money(amount),
+            base_amount=_money(amount),
+            description=f"{sku_id} 存货跌价损失",
+            dimensions=dimensions,
+        ),
+        JournalLineCreate(
+            account_code="1471",
+            account_name=account_names.get("1471", "存货跌价准备"),
+            direction="credit",
+            original_amount=_money(amount),
+            base_amount=_money(amount),
+            description=f"{sku_id} 存货跌价准备",
+            dimensions=dimensions,
+        ),
+    ]
+
+
+def build_inventory_count_variance_lines(
+    account_set_id: str,
+    variance_type: str,
+    variance_amount: Decimal,
+    sku_id: str,
+    warehouse_id: str,
+) -> list[JournalLineCreate]:
+    account_names = _account_names(account_set_id)
+    dimensions = [
+        JournalLineDimension(dimension_type="sku", dimension_code=sku_id),
+        JournalLineDimension(dimension_type="warehouse", dimension_code=warehouse_id),
+    ]
+    inventory_line = JournalLineCreate(
+        account_code="1405",
+        account_name=account_names.get("1405", "库存商品"),
+        direction="debit" if variance_type == "gain" else "credit",
+        original_amount=_money(variance_amount),
+        base_amount=_money(variance_amount),
+        description=f"{sku_id} 盘点{'盘盈' if variance_type == 'gain' else '盘亏'}",
+        dimensions=dimensions,
+    )
+    pending_line = JournalLineCreate(
+        account_code="1901",
+        account_name=account_names.get("1901", "待处理财产损溢"),
+        direction="credit" if variance_type == "gain" else "debit",
+        original_amount=_money(variance_amount),
+        base_amount=_money(variance_amount),
+        description=f"{sku_id} 盘点差异待处理",
+        dimensions=dimensions,
+    )
+    return [inventory_line, pending_line] if variance_type == "gain" else [pending_line, inventory_line]
+
+
 def calculate_moving_average_cost(
     existing_quantity: Decimal,
     existing_amount: Decimal,
@@ -289,14 +519,7 @@ def _validate_period_open(account_set_id: str, period: str) -> None:
 
 
 def _ensure_dimensions(account_set_id: str, sku_id: str, warehouse_id: str, supplier_id: str | None = None) -> None:
-    upsert_auxiliary_dimension(
-        AuxiliaryDimensionCreate(
-            account_set_id=account_set_id,
-            dimension_type="sku",
-            dimension_code=sku_id,
-            dimension_name=sku_id,
-        )
-    )
+    _ensure_sku_dimension(account_set_id, sku_id)
     upsert_auxiliary_dimension(
         AuxiliaryDimensionCreate(
             account_set_id=account_set_id,
@@ -316,8 +539,30 @@ def _ensure_dimensions(account_set_id: str, sku_id: str, warehouse_id: str, supp
         )
 
 
+def _ensure_sku_dimension(account_set_id: str, sku_id: str) -> None:
+    upsert_auxiliary_dimension(
+        AuxiliaryDimensionCreate(
+            account_set_id=account_set_id,
+            dimension_type="sku",
+            dimension_code=sku_id,
+            dimension_name=sku_id,
+        )
+    )
+
+
 def _movement_by_source(source_id: str) -> InventoryMovement | None:
     return next((movement for movement in _INVENTORY_MOVEMENTS if movement.source_id == source_id), None)
+
+
+def _existing_entry(account_set_id: str, period: str, source_type: str, source_id: str):
+    return next(
+        (
+            entry
+            for entry in list_journal_entries(account_set_id, period).entries
+            if entry.status == "posted" and entry.source_type == source_type and entry.source_id == source_id
+        ),
+        None,
+    )
 
 
 def _account_names(account_set_id: str) -> dict[str, str]:

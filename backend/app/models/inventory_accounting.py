@@ -12,6 +12,7 @@ InventoryMovementType = Literal[
     "adjustment_in",
     "adjustment_out",
 ]
+InventoryCountVarianceType = Literal["gain", "loss", "none"]
 
 
 class InventoryMovementCreate(BaseModel):
@@ -59,3 +60,21 @@ class InventorySalesIssueResult(BaseModel):
     cogs_account_code: str = "6401"
     inventory_account_code: str = "1405"
     journal_entry_id: str
+
+
+class InventoryCountVarianceResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    sku_id: str
+    warehouse_id: str
+    period: str
+    variance_type: InventoryCountVarianceType
+    book_quantity: Decimal = Field(max_digits=16, decimal_places=4)
+    actual_quantity: Decimal = Field(ge=Decimal("0"), max_digits=16, decimal_places=4)
+    variance_quantity: Decimal = Field(max_digits=16, decimal_places=4)
+    variance_amount: Decimal = Field(ge=Decimal("0"), max_digits=16, decimal_places=2)
+    source_id: str
+    approved_by: str
+    approved_at: str
+    journal_entry_id: str | None = None
