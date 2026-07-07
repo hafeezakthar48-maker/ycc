@@ -89,6 +89,14 @@ import type {
   VatLedgerLineListResponse
 } from "../types/taxAccounting";
 import type {
+  AccrualAmortizationEntryResponse,
+  AccrualAmortizationScheduleListResponse,
+  AccountingSchedule,
+  AccountingScheduleCreateRequest,
+  LoanInterestPostRequest,
+  SchedulePostRequest
+} from "../types/accrualAmortization";
+import type {
   AccountBalanceTableResponse,
   AccountSetListResponse,
   AccountingPeriodItem,
@@ -357,6 +365,42 @@ async function mutateTaxAccountingJson<T>(
   });
   if (!response.ok) {
     throw new Error(`税务核算 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function requestAccrualAmortizationJson<T>(
+  path: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    headers: { "X-Actor-Id": actorId }
+  });
+  if (!response.ok) {
+    throw new Error(`预提摊销 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function mutateAccrualAmortizationJson<T>(
+  path: string,
+  body: unknown,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Actor-Id": actorId
+    },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    throw new Error(`预提摊销 API 请求失败：${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -1174,6 +1218,66 @@ export function postTaxPayment(
 ): Promise<TaxAccountingEntryResponse> {
   return mutateTaxAccountingJson<TaxAccountingEntryResponse>(
     "/api/v1/tax-accounting/tax-payments",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchAccrualAmortizationSchedules(
+  accountSetId = "default",
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AccrualAmortizationScheduleListResponse> {
+  return requestAccrualAmortizationJson<AccrualAmortizationScheduleListResponse>(
+    `/api/v1/accrual-amortization/schedules?account_set_id=${encodeURIComponent(accountSetId)}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function createAccountingSchedule(
+  request: AccountingScheduleCreateRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AccountingSchedule> {
+  return mutateAccrualAmortizationJson<AccountingSchedule>(
+    "/api/v1/accrual-amortization/schedules",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function postAccountingScheduleForPeriod(
+  scheduleCode: string,
+  request: SchedulePostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AccrualAmortizationEntryResponse> {
+  return mutateAccrualAmortizationJson<AccrualAmortizationEntryResponse>(
+    `/api/v1/accrual-amortization/schedules/${encodeURIComponent(scheduleCode)}/post`,
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function postLoanInterestAccrual(
+  request: LoanInterestPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AccrualAmortizationEntryResponse> {
+  return mutateAccrualAmortizationJson<AccrualAmortizationEntryResponse>(
+    "/api/v1/accrual-amortization/loan-interest",
     request,
     apiBase,
     fetcher,

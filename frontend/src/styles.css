@@ -1973,12 +1973,41 @@ button:disabled {
   min-width: 460px;
 }
 
+.accrual-amortization-panel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.accrual-amortization-toolbar,
+.accrual-amortization-loan-form {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.accrual-amortization-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.accrual-amortization-grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+}
+
+.accrual-amortization-schedule-table {
+  min-width: 860px;
+}
+
+.accrual-amortization-loan-table {
+  min-width: 620px;
+}
+
 @media (max-width: 900px) {
   .period-close-toolbar,
   .period-close-summary-grid,
   .period-close-grid,
   .tax-accounting-summary-grid,
-  .tax-accounting-grid {
+  .tax-accounting-grid,
+  .accrual-amortization-summary-grid,
+  .accrual-amortization-grid {
     grid-template-columns: 1fr;
   }
 

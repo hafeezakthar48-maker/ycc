@@ -18,6 +18,7 @@ export type PeriodCloseActionType =
   | "payroll_accrual"
   | "tax_accrual"
   | "tax_surtax_accrual"
+  | "accrual_amortization_posting"
   | "fx_revaluation"
   | "profit_loss_carryforward"
   | "inventory_cost_rollforward"

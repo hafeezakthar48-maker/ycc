@@ -580,6 +580,7 @@ POST /api/v1/period-close/reopen
     "payroll_accrual",
     "tax_accrual",
     "tax_surtax_accrual",
+    "accrual_amortization_posting",
     "fx_revaluation",
     "bad_debt_provision",
     "inventory_cost_rollforward",
@@ -606,7 +607,7 @@ POST /api/v1/period-close/reopen
 ```
 
 生成接口会先运行检查清单，存在阻断项时返回 `409`；`preview=true` 时只返回将要生成的动作结果，不写入正式分录。实际生成时会按来源键幂等处理，同一账套、期间、动作和来源重复执行不会重复过账。
-外币期末重估只生成本位币 CNY 调整分录，原币金额保持不变；坏账准备按往来账龄规则生成借 `6701`、贷 `1231` 的正式分录；存货成本结转动作汇总当期已生成的销售出库成本分录；附加税计提动作按当期未交增值税结转金额生成借 `6403`、贷 `222103` 的正式分录；损益结转按月结转至 `4103 本年利润`，年结再转入 `4104 利润分配-未分配利润`。
+外币期末重估只生成本位币 CNY 调整分录，原币金额保持不变；坏账准备按往来账龄规则生成借 `6701`、贷 `1231` 的正式分录；存货成本结转动作汇总当期已生成的销售出库成本分录；附加税计提动作按当期未交增值税结转金额生成借 `6403`、贷 `222103` 的正式分录；预提摊销动作按活跃核算计划生成本期幂等分录；损益结转按月结转至 `4103 本年利润`，年结再转入 `4104 利润分配-未分配利润`。
 期间结账接口支持 `X-Actor-Id` 请求头，分别受 `period_close.view`、`period_close.check`、`period_close.generate`、`period_close.close` 和 `period_close.reopen` 权限控制，并记录 `period_close.run_started`、`period_close.runs_viewed`、`period_close.checks_completed`、`period_close.actions_previewed`、`period_close.actions_generated`、`period_close.period_closed` 和 `period_close.period_reopened` 审计日志；坏账准备动作还会记录 `receivable_payable.bad_debt.provision`。
 
 ## 账簿读模型 MVP
@@ -1071,6 +1072,103 @@ POST /api/v1/tax-accounting/tax-payments
 未交增值税结转借 `22210103` 贷 `222102`；附加税计提借 `6403` 贷 `222103`；所得税计提借 `6801` 贷 `222104`；纳税支付借税费明细科目、贷银行存款。来源键分别为 `tax_unpaid_vat_transfer:{account_set_id}:{period}`、`tax_surtax_accrual:{account_set_id}:{period}`、`tax_income_tax_accrual:{account_set_id}:{period}` 和 `tax_payment:{account_set_id}:{period}:{tax_account_code}`。接口支持 `X-Actor-Id` 请求头，分别受 `tax_accounting.read`、`tax_accounting.accrue`、`tax_accounting.pay` 权限控制，并记录 `tax_accounting.vat_ledger.read`、`tax_accounting.worksheet.read`、`tax_accounting.vat.transfer`、`tax_accounting.surtax.accrue`、`tax_accounting.income_tax.accrue` 和 `tax_accounting.payment.post` 审计事件。
 
 当前申报底稿只用于计算和复核，不接税局真实申报接口，不自动做抵扣认证，不做真实发票验真，不处理复杂税收优惠备案，不替代税务师判断；已关闭期间拒绝新增税费计提、结转和缴款正式分录。
+
+## 预提摊销与融资利息 Phase 14
+
+```text
+GET /api/v1/accrual-amortization/schedules?account_set_id=default
+POST /api/v1/accrual-amortization/schedules
+POST /api/v1/accrual-amortization/schedules/{schedule_code}/post
+POST /api/v1/accrual-amortization/loan-interest
+```
+
+计划列表返回核算计划和借款计划：
+
+```json
+{
+  "account_set_id": "default",
+  "total_schedules": 1,
+  "total_loans": 1,
+  "schedules": [
+    {
+      "account_set_id": "default",
+      "schedule_code": "AMORT-2026-001",
+      "schedule_type": "prepaid_amortization",
+      "start_period": "2026-06",
+      "end_period": "2026-08",
+      "total_amount": "12000.00",
+      "debit_account_code": "6602",
+      "credit_account_code": "1801",
+      "department_id": null,
+      "project_id": null,
+      "status": "active",
+      "posted_periods": ["2026-06"]
+    }
+  ],
+  "loan_schedules": [
+    {
+      "account_set_id": "default",
+      "loan_code": "LOAN-2026-001",
+      "principal": "1000000.00",
+      "annual_rate": "0.036000",
+      "start_period": "2026-06",
+      "end_period": "2026-12",
+      "loan_account_code": "2001",
+      "interest_expense_account_code": "6603",
+      "interest_payable_account_code": "2231",
+      "status": "active",
+      "interest_posted_periods": ["2026-06"]
+    }
+  ]
+}
+```
+
+创建预付摊销、预提费用或递延收入计划：
+
+```json
+{
+  "account_set_id": "default",
+  "schedule_code": "AMORT-2026-001",
+  "schedule_type": "prepaid_amortization",
+  "start_period": "2026-06",
+  "end_period": "2026-08",
+  "total_amount": "12000.00",
+  "debit_account_code": "6602",
+  "credit_account_code": "1801",
+  "department_id": "D-FIN",
+  "project_id": null
+}
+```
+
+生成指定期间计划分录：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06"
+}
+```
+
+借款利息计提请求会在借款计划不存在时先创建计划，再按期间生成利息计提：
+
+```json
+{
+  "account_set_id": "default",
+  "loan_code": "LOAN-2026-001",
+  "period": "2026-06",
+  "principal": "1000000.00",
+  "annual_rate": "0.036000",
+  "start_period": "2026-06",
+  "end_period": "2026-12",
+  "loan_account_code": "2001",
+  "interest_expense_account_code": "6603",
+  "interest_payable_account_code": "2231"
+}
+```
+
+月度摊销金额按计划总金额和起止期间平均分摊，尾差由最后一期吸收。计划过账来源键为 `schedule_posting:{account_set_id}:{period}:{schedule_code}`；借款利息计提来源键为 `loan_interest_accrual:{account_set_id}:{period}:{loan_code}`，重复调用返回既有正式分录，已关闭期间拒绝新增分录。期间结账动作 `accrual_amortization_posting` 会按活跃计划批量生成本期分录。
+
+接口支持 `X-Actor-Id` 请求头，分别受 `accrual_amortization.read`、`accrual_amortization.write` 和 `accrual_amortization.post` 权限控制，并记录 `accrual_amortization.schedule.read`、`accrual_amortization.schedule.create`、`accrual_amortization.schedule.post` 和 `accrual_amortization.loan_interest.post` 审计事件。当前计划表为内存 MVP，不做复杂金融工具公允价值、实际利率摊余成本完整模型、租赁准则全流程或合同收入五步法自动判断。
 
 ## 财务报表自动生成 MVP
 
