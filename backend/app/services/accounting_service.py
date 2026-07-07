@@ -28,11 +28,12 @@ from app.models.accounting import (
     JournalLineRecord,
     normalize_cash_flow_item_code,
 )
+from app.runtime_paths import get_default_database_path
 from app.services.accounting_period_service import is_accounting_period_closed, validate_account_set
 
 
-DEFAULT_ACCOUNTING_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "formal_accounting.sqlite3"
 ACCOUNTING_DB_PATH_ENV = "FINANCE_AI_ACCOUNTING_DB_PATH"
+DEFAULT_ACCOUNTING_DB_FILENAME = "formal_accounting.sqlite3"
 TWO_PLACES = Decimal("0.01")
 
 
@@ -712,7 +713,7 @@ def _next_entry_number(connection: sqlite3.Connection, period: str) -> str:
 
 @contextmanager
 def _connection() -> Iterator[sqlite3.Connection]:
-    db_path = Path(os.environ.get(ACCOUNTING_DB_PATH_ENV, DEFAULT_ACCOUNTING_DB_PATH))
+    db_path = _accounting_db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
@@ -725,6 +726,13 @@ def _connection() -> Iterator[sqlite3.Connection]:
         raise
     finally:
         connection.close()
+
+
+def _accounting_db_path() -> Path:
+    configured = os.environ.get(ACCOUNTING_DB_PATH_ENV)
+    if configured:
+        return Path(configured)
+    return get_default_database_path(DEFAULT_ACCOUNTING_DB_FILENAME)
 
 
 def _ensure_schema(connection: sqlite3.Connection) -> None:

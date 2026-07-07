@@ -22,13 +22,14 @@ from app.models.voucher_center import (
     VoucherCenterListResponse,
     VoucherCenterRecord,
 )
+from app.runtime_paths import get_default_database_path
 from app.services.audit_service import review_audit_subject
 from app.services.accounting_service import post_journal_entry, reverse_journal_entry
 from app.services.accounting_archive_service import create_archive_document
 
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "voucher_center.sqlite3"
 DB_PATH_ENV = "FINANCE_AI_VOUCHER_DB_PATH"
+DEFAULT_DB_FILENAME = "voucher_center.sqlite3"
 
 
 def reset_voucher_store() -> None:
@@ -348,7 +349,10 @@ def _connection() -> Iterator[sqlite3.Connection]:
 
 
 def _voucher_db_path() -> Path:
-    return Path(os.environ.get(DB_PATH_ENV, DEFAULT_DB_PATH))
+    configured = os.environ.get(DB_PATH_ENV)
+    if configured:
+        return Path(configured)
+    return get_default_database_path(DEFAULT_DB_FILENAME)
 
 
 def _ensure_schema(connection: sqlite3.Connection) -> None:
