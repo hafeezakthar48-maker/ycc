@@ -27,6 +27,17 @@ import type {
   ArchivePackageDownload
 } from "../types/accountingArchive";
 import type {
+  AccountingBackupManifest,
+  AccountingGovernanceScopeRequest,
+  AccountingIntegrityReport,
+  AccountingMigrationApplyRequest,
+  AccountingMigrationPreview,
+  FormalAccountingGoLiveGate,
+  FormalAccountingPermissionMatrix,
+  RestoreRehearsalRequest,
+  RestoreRehearsalResult
+} from "../types/accountingGovernance";
+import type {
   AnalyzeResponse,
   DashboardOverview,
   ImportPreview,
@@ -302,6 +313,42 @@ async function mutatePeriodCloseJson<T>(
   });
   if (!response.ok) {
     throw new Error(`期间结账 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function requestGovernanceJson<T>(
+  path: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    headers: { "X-Actor-Id": actorId }
+  });
+  if (!response.ok) {
+    throw new Error(`正式核算上线治理 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function mutateGovernanceJson<T>(
+  path: string,
+  body: unknown,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Actor-Id": actorId
+    },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    throw new Error(`正式核算上线治理 API 请求失败：${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -1686,6 +1733,115 @@ export async function downloadAccountingArchivePackage(
   }
 
   return { blob, filename };
+}
+
+export function fetchAccountingIntegrityChecks(
+  accountSetId = "default",
+  period = "2026-06",
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AccountingIntegrityReport> {
+  const query = new URLSearchParams({ account_set_id: accountSetId, period });
+  return requestGovernanceJson<AccountingIntegrityReport>(
+    `/api/v1/accounting-governance/integrity-checks?${query.toString()}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function previewAccountingMigration(
+  request: AccountingGovernanceScopeRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AccountingMigrationPreview> {
+  return mutateGovernanceJson<AccountingMigrationPreview>(
+    "/api/v1/accounting-governance/migration-preview",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function applyAccountingMigration(
+  request: AccountingMigrationApplyRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<unknown> {
+  return mutateGovernanceJson<unknown>(
+    "/api/v1/accounting-governance/migration-apply",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function createAccountingBackup(
+  request: AccountingGovernanceScopeRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<AccountingBackupManifest> {
+  return mutateGovernanceJson<AccountingBackupManifest>(
+    "/api/v1/accounting-governance/backups",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function rehearseAccountingRestore(
+  request: RestoreRehearsalRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<RestoreRehearsalResult> {
+  return mutateGovernanceJson<RestoreRehearsalResult>(
+    "/api/v1/accounting-governance/restore-rehearsals",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchAccountingPermissionMatrix(
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<FormalAccountingPermissionMatrix> {
+  return requestGovernanceJson<FormalAccountingPermissionMatrix>(
+    "/api/v1/accounting-governance/permission-matrix",
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchAccountingGoLiveGate(
+  accountSetId = "default",
+  period = "2026-06",
+  regressionResults: Record<string, string> = {},
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<FormalAccountingGoLiveGate> {
+  const query = new URLSearchParams({ account_set_id: accountSetId, period });
+  for (const [key, value] of Object.entries(regressionResults)) {
+    query.set(key, value);
+  }
+  return requestGovernanceJson<FormalAccountingGoLiveGate>(
+    `/api/v1/accounting-governance/go-live-gate?${query.toString()}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
 }
 
 export function runPeriodCloseChecks(

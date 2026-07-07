@@ -7,6 +7,7 @@ import type { DashboardOverview, ManagementReport } from "../types/dashboard";
 import type { HomeDashboard } from "../types/homeDashboard";
 import type { NavigationOsModule } from "../types/moduleRegistry";
 import AccountingArchivePanel from "./AccountingArchivePanel";
+import AccountingGovernancePanel from "./AccountingGovernancePanel";
 import AccrualAmortizationPanel from "./AccrualAmortizationPanel";
 import AuditReviewPanel from "./AuditReviewPanel";
 import BankReconciliationPanel from "./BankReconciliationPanel";
@@ -124,6 +125,7 @@ export default function DashboardLayout({ modules, homeDashboard, overview, repo
           <ModuleRoadmap module={moduleById["finance-center"]} />
           <VoucherCenterPanel />
           <AccountingArchivePanel period={overview.period} />
+          <AccountingGovernancePanel period={overview.period} />
           <LedgerPanel period={overview.period} />
           <ReceivablePayablePanel period={overview.period} />
           <BankReconciliationPanel period={overview.period} />

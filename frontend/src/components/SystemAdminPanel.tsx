@@ -65,6 +65,18 @@ export default function SystemAdminPanel() {
     () => permissions.filter((permission) => permission.risk_level === "high"),
     [permissions]
   );
+  const governancePermissions = useMemo(
+    () => permissions.filter((permission) =>
+      [
+        "accounting_governance.read",
+        "accounting_migration.preview",
+        "accounting_migration.apply",
+        "accounting_backup.create",
+        "accounting_governance.approve_go_live"
+      ].includes(permission.code)
+    ),
+    [permissions]
+  );
   const activeUsers = users.filter((user) => user.active);
 
   return (
@@ -91,6 +103,10 @@ export default function SystemAdminPanel() {
         <article>
           <span>高风险权限</span>
           <strong>{highRiskPermissions.length}</strong>
+        </article>
+        <article>
+          <span>上线治理权限</span>
+          <strong>{governancePermissions.length}</strong>
         </article>
         <article>
           <span>角色</span>

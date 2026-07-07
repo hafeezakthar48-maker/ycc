@@ -68,12 +68,14 @@ def test_finance_center_registry_declares_ledger_read_model_api():
     assert "/api/v1/ledger" in module["api_prefixes"]
     assert "ledger.general.read" in module["audit_events"]
     assert "/api/v1/accounting-archive" in module["api_prefixes"]
+    assert "/api/v1/accounting-governance" in module["api_prefixes"]
     assert "/api/v1/receivable-payable" in module["api_prefixes"]
     assert "/api/v1/bank-reconciliation" in module["api_prefixes"]
     assert "/api/v1/fixed-asset-accounting" in module["api_prefixes"]
     assert "/api/v1/payroll-accounting" in module["api_prefixes"]
     assert "银行对账" in module["capabilities"]
     assert "薪酬正式核算" in module["capabilities"]
+    assert "正式核算上线治理" in module["capabilities"]
     assert {
         "archive.document.list",
         "archive.document.get",
@@ -81,6 +83,15 @@ def test_finance_center_registry_declares_ledger_read_model_api():
         "archive.case.create",
         "archive.package.download",
         "archive.verification.update",
+    }.issubset(set(module["audit_events"]))
+    assert {
+        "accounting_governance.integrity.read",
+        "accounting_governance.migration.preview",
+        "accounting_governance.migration.apply",
+        "accounting_governance.backup.create",
+        "accounting_governance.restore.rehearsal",
+        "accounting_governance.permission_matrix.read",
+        "accounting_governance.go_live_gate.read",
     }.issubset(set(module["audit_events"]))
     assert {
         "receivable_payable.balance.read",

@@ -1,5 +1,9 @@
 # China Finance AI Assistant
 
+## Phase 16 正式核算上线治理
+
+本阶段新增正式核算上线治理层，覆盖完整性校验、MVP 凭证迁移 dry-run、受控迁移 apply、备份清单、恢复演练、权限矩阵和上线门禁。后端入口为 `/api/v1/accounting-governance`，前端 AI 财务中心新增“正式核算上线治理”面板，详细操作见 [正式核算上线治理清单](docs/formal-accounting-go-live-checklist.md)。
+
 面向中国企业财务经理的经营分析与风险预警驾驶舱 MVP。
 
 产品长期形态为 China Finance AI OS，完整 FRD V1.0 见 [docs/03-frd-v1.0.md](docs/03-frd-v1.0.md)。当前代码库先实现其中的 MVP 闭环能力。

@@ -1360,3 +1360,32 @@ POST /api/v1/audit/review
 ```
 
 返回审核评分、评级、检查项状态、错误清单、审核建议和法规/准则引用。当前接口只做规则审核与错误定位，不输出最终审计意见。
+## 正式核算上线治理 Phase 16
+
+```text
+GET /api/v1/accounting-governance/integrity-checks?account_set_id=default&period=2026-06
+POST /api/v1/accounting-governance/migration-preview
+POST /api/v1/accounting-governance/migration-apply
+POST /api/v1/accounting-governance/backups
+POST /api/v1/accounting-governance/restore-rehearsals
+GET /api/v1/accounting-governance/permission-matrix
+GET /api/v1/accounting-governance/go-live-gate?account_set_id=default&period=2026-06
+```
+
+权限点：
+
+- `accounting_governance.read`
+- `accounting_migration.preview`
+- `accounting_migration.apply`
+- `accounting_backup.create`
+- `accounting_governance.approve_go_live`
+
+审计事件：
+
+- `accounting_governance.integrity.read`
+- `accounting_governance.migration.preview`
+- `accounting_governance.migration.apply`
+- `accounting_governance.backup.create`
+- `accounting_governance.restore.rehearsal`
+- `accounting_governance.permission_matrix.read`
+- `accounting_governance.go_live_gate.read`
