@@ -1170,6 +1170,84 @@ POST /api/v1/accrual-amortization/loan-interest
 
 接口支持 `X-Actor-Id` 请求头，分别受 `accrual_amortization.read`、`accrual_amortization.write` 和 `accrual_amortization.post` 权限控制，并记录 `accrual_amortization.schedule.read`、`accrual_amortization.schedule.create`、`accrual_amortization.schedule.post` 和 `accrual_amortization.loan_interest.post` 审计事件。当前计划表为内存 MVP，不做复杂金融工具公允价值、实际利率摊余成本完整模型、租赁准则全流程或合同收入五步法自动判断。
 
+## 合并报表与内部抵销 Phase 15
+
+```text
+GET /api/v1/consolidation/groups
+POST /api/v1/consolidation/groups
+GET /api/v1/consolidation/reporting-package?account_set_id=default&period=2026-06
+GET /api/v1/consolidation/eliminations?group_id=group-001&period=2026-06
+POST /api/v1/consolidation/eliminations/rebuild
+GET /api/v1/consolidation/statements?group_id=group-001&period=2026-06
+```
+
+创建合并集团：
+
+```json
+{
+  "group_id": "group-001",
+  "group_name": "中国财务AI集团",
+  "entities": [
+    {
+      "consolidation_group_id": "group-001",
+      "account_set_id": "default",
+      "entity_name": "母公司",
+      "ownership_percentage": "1.000000",
+      "consolidation_method": "full"
+    },
+    {
+      "consolidation_group_id": "group-001",
+      "account_set_id": "cross_border",
+      "entity_name": "子公司A",
+      "ownership_percentage": "0.800000",
+      "consolidation_method": "proportionate"
+    }
+  ]
+}
+```
+
+单体报表包返回指定账套的资产负债表、利润表和现金流量表；合并层保留原始报表来源，不修改单体正式分录。
+
+重建抵销请求：
+
+```json
+{
+  "group_id": "group-001",
+  "period": "2026-06",
+  "intercompany_balance_amount": "50000.00",
+  "intercompany_revenue_amount": "80000.00",
+  "intercompany_cost_amount": "60000.00",
+  "ending_internal_inventory_amount": "100000.00",
+  "internal_gross_margin_rate": "0.200000",
+  "investment_amount": "800000.00",
+  "subsidiary_equity_amount": "1000000.00",
+  "ownership_percentage": "0.800000"
+}
+```
+
+抵销列表返回：
+
+```json
+{
+  "group_id": "group-001",
+  "period": "2026-06",
+  "total_eliminations": 4,
+  "eliminations": [
+    {
+      "elimination_type": "intercompany_balance",
+      "debit_account_code": "2202",
+      "credit_account_code": "1122",
+      "amount": "50000.00",
+      "explanation": "抵销内部应收应付"
+    }
+  ]
+}
+```
+
+合并报表返回合并资产负债表、合并利润表、合并现金流量表、少数股东权益、少数股东损益和抵销分录数量。抵销类型包括 `intercompany_balance`、`intercompany_revenue_cost`、`unrealized_profit` 和 `investment_equity`。
+
+接口支持 `X-Actor-Id` 请求头，分别受 `consolidation.read`、`consolidation.write` 和 `consolidation.rebuild` 权限控制，并记录 `consolidation.group.read`、`consolidation.group.write`、`consolidation.package.read`、`consolidation.elimination.rebuild` 和 `consolidation.statement.read` 审计事件。当前合并范围和抵销底稿为内存 MVP，不做复杂股权购买法追溯、商誉减值完整评估模型、境外准则转换或审计合并底稿替代。
+
 ## 财务报表自动生成 MVP
 
 ```text

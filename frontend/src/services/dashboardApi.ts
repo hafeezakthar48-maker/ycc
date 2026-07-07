@@ -97,6 +97,15 @@ import type {
   SchedulePostRequest
 } from "../types/accrualAmortization";
 import type {
+  ConsolidatedStatementResponse,
+  ConsolidationEliminationListResponse,
+  ConsolidationEliminationRebuildRequest,
+  ConsolidationGroup,
+  ConsolidationGroupCreateRequest,
+  ConsolidationGroupListResponse,
+  ConsolidationReportingPackage
+} from "../types/consolidation";
+import type {
   AccountBalanceTableResponse,
   AccountSetListResponse,
   AccountingPeriodItem,
@@ -401,6 +410,42 @@ async function mutateAccrualAmortizationJson<T>(
   });
   if (!response.ok) {
     throw new Error(`预提摊销 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function requestConsolidationJson<T>(
+  path: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    headers: { "X-Actor-Id": actorId }
+  });
+  if (!response.ok) {
+    throw new Error(`合并报表 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function mutateConsolidationJson<T>(
+  path: string,
+  body: unknown,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Actor-Id": actorId
+    },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    throw new Error(`合并报表 API 请求失败：${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -1279,6 +1324,97 @@ export function postLoanInterestAccrual(
   return mutateAccrualAmortizationJson<AccrualAmortizationEntryResponse>(
     "/api/v1/accrual-amortization/loan-interest",
     request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchConsolidationGroups(
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ConsolidationGroupListResponse> {
+  return requestConsolidationJson<ConsolidationGroupListResponse>(
+    "/api/v1/consolidation/groups",
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function createConsolidationGroup(
+  request: ConsolidationGroupCreateRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ConsolidationGroup> {
+  return mutateConsolidationJson<ConsolidationGroup>(
+    "/api/v1/consolidation/groups",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchConsolidationReportingPackage(
+  accountSetId: string,
+  period: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ConsolidationReportingPackage> {
+  const query = new URLSearchParams({ account_set_id: accountSetId, period });
+  return requestConsolidationJson<ConsolidationReportingPackage>(
+    `/api/v1/consolidation/reporting-package?${query.toString()}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchConsolidationEliminations(
+  groupId: string,
+  period: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ConsolidationEliminationListResponse> {
+  const query = new URLSearchParams({ group_id: groupId, period });
+  return requestConsolidationJson<ConsolidationEliminationListResponse>(
+    `/api/v1/consolidation/eliminations?${query.toString()}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function rebuildConsolidationEliminations(
+  request: ConsolidationEliminationRebuildRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ConsolidationEliminationListResponse> {
+  return mutateConsolidationJson<ConsolidationEliminationListResponse>(
+    "/api/v1/consolidation/eliminations/rebuild",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchConsolidatedStatements(
+  groupId: string,
+  period: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<ConsolidatedStatementResponse> {
+  const query = new URLSearchParams({ group_id: groupId, period });
+  return requestConsolidationJson<ConsolidatedStatementResponse>(
+    `/api/v1/consolidation/statements?${query.toString()}`,
     apiBase,
     fetcher,
     actorId

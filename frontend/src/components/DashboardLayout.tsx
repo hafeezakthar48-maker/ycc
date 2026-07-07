@@ -10,6 +10,7 @@ import AccountingArchivePanel from "./AccountingArchivePanel";
 import AccrualAmortizationPanel from "./AccrualAmortizationPanel";
 import AuditReviewPanel from "./AuditReviewPanel";
 import BankReconciliationPanel from "./BankReconciliationPanel";
+import ConsolidationPanel from "./ConsolidationPanel";
 import ECommerceProfitPanel from "./ECommerceProfitPanel";
 import FinanceQaPanel from "./FinanceQaPanel";
 import FinancialStatementPanel from "./FinancialStatementPanel";
@@ -129,6 +130,7 @@ export default function DashboardLayout({ modules, homeDashboard, overview, repo
           <InventoryAccountingPanel period={overview.period} />
           <TaxAccountingPanel period={overview.period} />
           <AccrualAmortizationPanel period={overview.period} />
+          <ConsolidationPanel period={overview.period} />
           <FixedAssetPanel period={overview.period} />
           <PayrollPanel period={overview.period} />
           <PeriodClosePanel period={overview.period} />
