@@ -146,4 +146,4 @@ def _now_iso() -> str:
 
 
 def _timestamp_id() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")

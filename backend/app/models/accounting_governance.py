@@ -79,3 +79,43 @@ class AccountingMigrationApplyResult(BaseModel):
     blocked_count: int = Field(ge=0)
     journal_entry_ids: list[str] = Field(default_factory=list)
     preview: AccountingMigrationPreview
+
+
+class AccountingBackupManifest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    backup_manifest_id: str
+    account_set_id: str
+    period: str
+    actor_id: str
+    created_at: str
+    datasets: list[str]
+    dataset_row_counts: dict[str, int]
+    dataset_checksums: dict[str, str]
+
+
+class RestoreRehearsalResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    restore_rehearsal_id: str
+    backup_manifest_id: str
+    account_set_id: str
+    period: str
+    actor_id: str
+    target_database_path: str
+    started_at: str
+    completed_at: str
+    status: Literal["passed", "failed"]
+    row_counts: dict[str, int]
+    integrity_status: CheckStatus
+    messages: list[str] = Field(default_factory=list)
+
+
+class AccountingBackupPackage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    backup_manifest_id: str
+    filename: str
+    content_type: Literal["application/zip"] = "application/zip"
+    size: int = Field(ge=0)
+    content: bytes
