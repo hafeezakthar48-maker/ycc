@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from app.models.consolidation import ConsolidationEntity
+from app.services.consolidation_service import build_reporting_package
 
 
 def test_consolidation_entity_records_ownership_percentage():
@@ -13,3 +14,13 @@ def test_consolidation_entity_records_ownership_percentage():
     )
 
     assert entity.ownership_percentage == Decimal("0.80")
+
+
+def test_build_reporting_package_reads_balance_and_income_statement():
+    package = build_reporting_package("default", "2026-06")
+
+    assert package.account_set_id == "default"
+    assert package.period == "2026-06"
+    assert package.balance_sheet is not None
+    assert package.income_statement is not None
+    assert package.cash_flow_statement is not None
