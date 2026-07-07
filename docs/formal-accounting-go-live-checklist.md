@@ -60,6 +60,16 @@ npm --prefix frontend run build
 git diff --check
 ```
 
+## 最终验证记录
+
+- 验证日期：2026-07-07。
+- 验证分支：`codex/formal-accounting-phase-1`。
+- 后端验证：`python -m pytest backend/tests -q`，结果 `272 passed, 1 warning`。
+- 前端验证：`npm --prefix frontend test`，结果通过全部导航与 API helper 测试。
+- 前端构建：`npm --prefix frontend run build`，结果通过；Vite 仅提示生产包 chunk 超过默认体积阈值。
+- 差异检查：`git diff --check`，结果通过。
+- 上线治理提交：`91d2b90` 完整性校验，`80b0a7d` 迁移预览，`e7bce12` 备份恢复，`eadd0e3` 上线门禁，`5c2ec7b` API 与前端治理面板。
+
 ## 手工验收场景
 
 - 已审核凭证生成不可变正式分录。
