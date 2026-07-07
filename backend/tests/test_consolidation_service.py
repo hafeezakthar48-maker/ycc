@@ -1,7 +1,12 @@
 from decimal import Decimal
 
 from app.models.consolidation import ConsolidationEntity
-from app.services.consolidation_service import build_intercompany_balance_elimination, build_reporting_package
+from app.services.consolidation_service import (
+    build_intercompany_balance_elimination,
+    build_intercompany_revenue_cost_elimination,
+    build_reporting_package,
+    calculate_unrealized_inventory_profit,
+)
 
 
 def test_consolidation_entity_records_ownership_percentage():
@@ -39,3 +44,27 @@ def test_build_intercompany_balance_elimination_offsets_ar_and_ap():
     assert entry.debit_account_code == "2202"
     assert entry.credit_account_code == "1122"
     assert entry.amount == Decimal("50000.00")
+
+
+def test_calculate_unrealized_inventory_profit_uses_margin_rate():
+    result = calculate_unrealized_inventory_profit(
+        ending_internal_inventory_amount=Decimal("100000.00"),
+        internal_gross_margin_rate=Decimal("0.20"),
+    )
+
+    assert result == Decimal("20000.00")
+
+
+def test_build_intercompany_revenue_cost_elimination_offsets_internal_sales():
+    entries = build_intercompany_revenue_cost_elimination(
+        group_id="group-001",
+        period="2026-06",
+        revenue_amount=Decimal("80000.00"),
+        cost_amount=Decimal("60000.00"),
+    )
+
+    assert len(entries) == 1
+    assert entries[0].elimination_type == "intercompany_revenue_cost"
+    assert entries[0].debit_account_code == "6001"
+    assert entries[0].credit_account_code == "6401"
+    assert entries[0].amount == Decimal("60000.00")

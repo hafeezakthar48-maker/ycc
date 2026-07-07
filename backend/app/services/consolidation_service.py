@@ -35,3 +35,31 @@ def build_intercompany_balance_elimination(
         amount=amount.quantize(Decimal("0.01")),
         explanation="抵销内部应收应付",
     )
+
+
+def calculate_unrealized_inventory_profit(
+    ending_internal_inventory_amount: Decimal,
+    internal_gross_margin_rate: Decimal,
+) -> Decimal:
+    return (ending_internal_inventory_amount * internal_gross_margin_rate).quantize(Decimal("0.01"))
+
+
+def build_intercompany_revenue_cost_elimination(
+    group_id: str,
+    period: str,
+    revenue_amount: Decimal,
+    cost_amount: Decimal,
+) -> list[ConsolidationEliminationEntry]:
+    elimination_amount = min(revenue_amount, cost_amount).quantize(Decimal("0.01"))
+    return [
+        ConsolidationEliminationEntry(
+            elimination_id=f"elim-{group_id}-{period}-revenue-cost",
+            group_id=group_id,
+            period=period,
+            elimination_type="intercompany_revenue_cost",
+            debit_account_code="6001",
+            credit_account_code="6401",
+            amount=elimination_amount,
+            explanation="抵销内部销售收入与成本",
+        )
+    ]
