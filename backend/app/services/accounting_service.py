@@ -80,7 +80,17 @@ _SUPPORTED_CURRENCIES: tuple[CurrencyItem, ...] = (
     CurrencyItem(currency_code="EUR", currency_name="欧元", decimal_places=2),
     CurrencyItem(currency_code="HKD", currency_name="港币", decimal_places=2),
 )
-SUPPORTED_DIMENSION_TYPES = ("customer", "supplier", "employee", "department", "project", "asset", "platform", "sku")
+SUPPORTED_DIMENSION_TYPES = (
+    "customer",
+    "supplier",
+    "employee",
+    "department",
+    "project",
+    "asset",
+    "platform",
+    "sku",
+    "warehouse",
+)
 
 
 def reset_accounting_store() -> None:

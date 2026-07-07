@@ -18,6 +18,7 @@ AuxiliaryDimensionType = Literal[
     "asset",
     "platform",
     "sku",
+    "warehouse",
 ]
 
 
