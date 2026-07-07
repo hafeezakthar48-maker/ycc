@@ -51,3 +51,41 @@ class TaxFilingWorksheet(BaseModel):
     vat_payable: Decimal = Field(ge=Decimal("0"), max_digits=16, decimal_places=2)
     surtax_payable: Decimal = Field(ge=Decimal("0"), max_digits=16, decimal_places=2)
     income_tax_payable: Decimal = Field(ge=Decimal("0"), max_digits=16, decimal_places=2)
+
+
+class VatLedgerLineListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    period: str
+    total: int
+    lines: list[VatLedgerLine]
+
+
+class TaxAmountPostRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    amount: Decimal = Field(gt=Decimal("0"), max_digits=16, decimal_places=2)
+
+
+class SurtaxAccrualRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    vat_payable: Decimal = Field(gt=Decimal("0"), max_digits=16, decimal_places=2)
+    urban_maintenance_rate: Decimal = Field(default=Decimal("0.07"), ge=Decimal("0"), max_digits=8, decimal_places=6)
+    education_rate: Decimal = Field(default=Decimal("0.03"), ge=Decimal("0"), max_digits=8, decimal_places=6)
+    local_education_rate: Decimal = Field(default=Decimal("0.02"), ge=Decimal("0"), max_digits=8, decimal_places=6)
+
+
+class TaxPaymentPostRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    tax_account_code: str = Field(min_length=1, max_length=32)
+    amount: Decimal = Field(gt=Decimal("0"), max_digits=16, decimal_places=2)
+    bank_account_code: str = Field(default="1002", min_length=1, max_length=32)
