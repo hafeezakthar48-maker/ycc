@@ -56,6 +56,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
 '
 
   $files = Get-ChildItem -Path $iexpressSource -File | Sort-Object Name
+  $sourceExe = Get-Item (Join-Path $iexpressSource "ChinaFinanceAIAssistant.exe")
   $sourceFileEntries = @()
   $stringEntries = @()
   for ($index = 0; $index -lt $files.Count; $index++) {
@@ -74,7 +75,7 @@ PackagePurpose=InstallApp
 ShowInstallProgramWindow=1
 HideExtractAnimation=1
 UseLongFileName=1
-InsideCompressed=0
+InsideCompressed=1
 CAB_FixedSize=0
 CAB_ResvCodeSigning=0
 RebootMode=N
@@ -112,6 +113,11 @@ $($stringEntries -join "`r`n")
     Start-Sleep -Milliseconds 500
   }
   if (Test-Path $iexpressTarget) {
+    $iexpressOutput = Get-Item $iexpressTarget
+    if ($iexpressOutput.Length -lt $sourceExe.Length) {
+      Write-Warning "IExpress output is smaller than the application exe. Skipping unreliable setup file."
+      return
+    }
     Copy-Item -LiteralPath $iexpressTarget -Destination $TargetExe -Force
     Write-Host "Generated single-file setup: $TargetExe"
   }
@@ -191,6 +197,9 @@ Set-Content -Path (Join-Path $stage "README-INSTALL.txt") -Encoding UTF8 -Value 
 
 if (Test-Path $zipPath) {
   Remove-Item -LiteralPath $zipPath -Force
+}
+if (Test-Path $installerExePath) {
+  Remove-Item -LiteralPath $installerExePath -Force
 }
 Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zipPath -Force
 Write-Host "Generated zip package: $zipPath"

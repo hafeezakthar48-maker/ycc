@@ -1,5 +1,9 @@
 # China Finance AI Assistant
 
+## Windows 桌面安装包
+
+已支持构建 Windows x64 离线安装包，目标电脑无需安装 Python、Node.js 或 npm。当前可靠发行物为 `output/ChinaFinanceAIAssistant-Windows-x64.zip`，解压后运行 `install.ps1` 即可安装到 `%LOCALAPPDATA%\Programs\ChinaFinanceAIAssistant`，用户数据写入 `%LOCALAPPDATA%\ChinaFinanceAIAssistant`。详细步骤见 [Windows 桌面安装包](docs/windows-installation.md)。
+
 ## Phase 16 正式核算上线治理
 
 本阶段新增正式核算上线治理层，覆盖完整性校验、MVP 凭证迁移 dry-run、受控迁移 apply、备份清单、恢复演练、权限矩阵和上线门禁。后端入口为 `/api/v1/accounting-governance`，前端 AI 财务中心新增“正式核算上线治理”面板，详细操作见 [正式核算上线治理清单](docs/formal-accounting-go-live-checklist.md)。
