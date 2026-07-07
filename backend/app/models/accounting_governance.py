@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 CheckStatus = Literal["pass", "fail", "warning"]
+GoLiveGateStatus = Literal["pass", "warning", "blocked"]
 MigrationItemStatus = Literal["ready", "already_migrated", "blocked"]
 
 
@@ -119,3 +120,36 @@ class AccountingBackupPackage(BaseModel):
     content_type: Literal["application/zip"] = "application/zip"
     size: int = Field(ge=0)
     content: bytes
+
+
+class FormalAccountingPermissionMatrix(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    required_permissions: list[str]
+    available_permissions: list[str]
+    missing_permissions: list[str]
+    critical_missing_permissions: list[str]
+    role_coverage: dict[str, list[str]]
+    segregation_rules: list[str]
+
+
+class GoLiveGateCheck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    gate_code: str
+    gate_name: str
+    status: GoLiveGateStatus
+    message: str
+
+
+class FormalAccountingGoLiveGate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    period: str
+    status: GoLiveGateStatus
+    generated_at: str
+    checks: list[GoLiveGateCheck]
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    regression_results: dict[str, str] = Field(default_factory=dict)
