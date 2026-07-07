@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from app.models.accrual_amortization import AccountingScheduleCreate
+from app.services.accrual_amortization_service import calculate_even_monthly_amount
 
 
 def test_accounting_schedule_has_total_amount_and_months():
@@ -17,3 +18,9 @@ def test_accounting_schedule_has_total_amount_and_months():
     )
 
     assert schedule.total_amount == Decimal("12000.00")
+
+
+def test_calculate_even_monthly_amount_rounds_to_cents():
+    result = calculate_even_monthly_amount(Decimal("10000.00"), 3)
+
+    assert result == [Decimal("3333.33"), Decimal("3333.33"), Decimal("3333.34")]
