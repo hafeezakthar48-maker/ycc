@@ -175,6 +175,8 @@ def generate_period_close_actions(
             results.append(_generate_tax_accrual(account_set_id, period, generated_by))
         elif action == "tax_surtax_accrual":
             results.append(_generate_tax_surtax_accrual(account_set_id, period, generated_by))
+        elif action == "accrual_amortization_posting":
+            results.append(_generate_accrual_amortization_posting(account_set_id, period, generated_by))
         elif action == "fx_revaluation":
             results.append(_generate_fx_revaluation(account_set_id, period, generated_by))
         elif action == "profit_loss_carryforward":
@@ -306,6 +308,38 @@ def _generate_tax_surtax_accrual(account_set_id: str, period: str, generated_by:
     )
     entry = post_surtax_accrual(account_set_id, period, result, generated_by)
     return _action_result(source_type, "generated", [entry], result.total, "已生成附加税计提分录。")
+
+
+def _generate_accrual_amortization_posting(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:
+    action_type = "accrual_amortization_posting"
+    from app.services.accrual_amortization_service import (
+        get_schedule_amount_for_period,
+        list_accounting_schedules,
+        post_schedule_for_period,
+    )
+
+    generated_entries = []
+    existing_entries = []
+    total_amount = Decimal("0.00")
+    for schedule in list_accounting_schedules(account_set_id):
+        if schedule.status != "active" or not (schedule.start_period <= period <= schedule.end_period):
+            continue
+        source_id = f"schedule_posting:{account_set_id}:{period}:{schedule.schedule_code}"
+        existing = _existing_entries(account_set_id, period, schedule.schedule_type, source_id)
+        amount = get_schedule_amount_for_period(schedule, period)
+        if existing:
+            existing_entries.extend(existing)
+            total_amount += amount
+            continue
+        entry = post_schedule_for_period(account_set_id, schedule.schedule_code, period, generated_by)
+        generated_entries.append(entry)
+        total_amount += amount
+
+    if generated_entries:
+        return _action_result(action_type, "generated", generated_entries, _money(total_amount), "已按核算计划生成本期预提摊销分录。")
+    if existing_entries:
+        return _action_result(action_type, "existing", existing_entries, _money(total_amount), "本期预提摊销分录已存在。")
+    return _action_result(action_type, "skipped", [], Decimal("0.00"), "本期间没有可生成的预提摊销计划。")
 
 
 def _generate_fx_revaluation(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:

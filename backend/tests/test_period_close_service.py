@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from app.models.accrual_amortization import AccountingScheduleCreate
 from app.models.accounting import AuxiliaryDimensionCreate, ExchangeRateCreate, JournalEntryCreate, JournalLineCreate, JournalLineDimension
 from app.models.fixed_asset import FixedAssetCreateRequest
 from app.models.payroll import PayrollCalculateRequest, PayrollEmployeeInput
@@ -11,6 +12,7 @@ from app.services.accounting_service import (
     upsert_auxiliary_dimension,
     upsert_exchange_rate,
 )
+from app.services.accrual_amortization_service import create_accounting_schedule, reset_accrual_amortization_store
 from app.services.fixed_asset_accounting_service import capitalize_fixed_asset, reset_fixed_asset_accounting_store
 from app.services.fixed_asset_service import create_fixed_asset, reset_fixed_asset_store
 from app.services.inventory_accounting_service import post_purchase_receipt, post_sales_issue, reset_inventory_accounting_store
@@ -36,6 +38,7 @@ def setup_function():
     reset_period_close_store()
     reset_receivable_payable_store()
     reset_inventory_accounting_store()
+    reset_accrual_amortization_store()
 
 
 def test_start_period_close_run_records_scope_and_status():
@@ -194,6 +197,40 @@ def test_generate_tax_surtax_accrual_action_uses_unpaid_vat_transfer():
         ("6403", "debit", Decimal("120.00")),
         ("222103", "credit", Decimal("120.00")),
     ]
+
+
+def test_generate_accrual_amortization_action_posts_active_schedules():
+    create_accounting_schedule(
+        AccountingScheduleCreate(
+            account_set_id="default",
+            schedule_code="AMORT-2026-001",
+            schedule_type="prepaid_amortization",
+            start_period="2026-06",
+            end_period="2026-08",
+            total_amount=Decimal("3000.00"),
+            debit_account_code="6602",
+            credit_account_code="1801",
+        )
+    )
+
+    first = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["accrual_amortization_posting"],
+        generated_by="finance-user",
+    )
+    second = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["accrual_amortization_posting"],
+        generated_by="finance-user",
+    )
+    entry = next(entry for entry in list_journal_entries("default", "2026-06").entries if entry.source_type == "prepaid_amortization")
+
+    assert first[0].status == "generated"
+    assert first[0].amount == Decimal("1000.00")
+    assert second[0].status == "existing"
+    assert entry.source_id == "schedule_posting:default:2026-06:AMORT-2026-001"
 
 
 def test_fx_revaluation_generates_base_currency_adjustment_only():
