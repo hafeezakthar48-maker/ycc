@@ -2,21 +2,25 @@
 
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_submodules
 
-project_root = Path(SPECPATH).resolve().parents[1]
-repo_root = project_root.parent
+
+backend_root = Path(SPECPATH).resolve().parent
+repo_root = backend_root.parent
 frontend_dist = repo_root / "frontend" / "dist"
+app_hiddenimports = collect_submodules("app")
 
 datas = []
 if frontend_dist.exists():
     datas.append((str(frontend_dist), "frontend_dist"))
 
 a = Analysis(
-    [str(project_root / "app" / "desktop.py")],
-    pathex=[str(project_root)],
+    [str(backend_root / "app" / "desktop.py")],
+    pathex=[str(backend_root)],
     binaries=[],
     datas=datas,
     hiddenimports=[
+        *app_hiddenimports,
         "uvicorn.logging",
         "uvicorn.loops.auto",
         "uvicorn.protocols.http.auto",

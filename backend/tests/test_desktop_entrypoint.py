@@ -1,4 +1,5 @@
 from unittest.mock import Mock
+from pathlib import Path
 
 
 def test_desktop_entrypoint_builds_local_uvicorn_config():
@@ -52,3 +53,12 @@ def test_open_browser_when_ready_returns_false_after_timeout():
 
     assert result is False
     opener.assert_not_called()
+
+
+def test_pyinstaller_spec_points_to_backend_desktop_entrypoint():
+    spec_path = Path(__file__).resolve().parents[1] / "pyinstaller" / "china-finance-ai-assistant.spec"
+    content = spec_path.read_text(encoding="utf-8")
+
+    assert 'backend_root = Path(SPECPATH).resolve().parent' in content
+    assert 'backend_root / "app" / "desktop.py"' in content
+    assert 'collect_submodules("app")' in content
