@@ -25,6 +25,7 @@ from app.services.period_close_service import (
     start_period_close_run,
 )
 from app.services.receivable_payable_service import reset_receivable_payable_store
+from app.services.tax_accounting_service import post_unpaid_vat_transfer
 
 
 def setup_function():
@@ -174,6 +175,25 @@ def test_generate_tax_accrual_action_uses_configured_rule():
 
     assert results[0].status == "generated"
     assert results[0].amount == Decimal("600.00")
+
+
+def test_generate_tax_surtax_accrual_action_uses_unpaid_vat_transfer():
+    post_unpaid_vat_transfer("default", "2026-06", Decimal("1000.00"), "tax-user")
+
+    results = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["tax_surtax_accrual"],
+        generated_by="finance-user",
+    )
+    entry = next(entry for entry in list_journal_entries("default", "2026-06").entries if entry.source_type == "tax_surtax_accrual")
+
+    assert results[0].status == "generated"
+    assert results[0].amount == Decimal("120.00")
+    assert [(line.account_code, line.direction, line.base_amount) for line in entry.lines] == [
+        ("6403", "debit", Decimal("120.00")),
+        ("222103", "credit", Decimal("120.00")),
+    ]
 
 
 def test_fx_revaluation_generates_base_currency_adjustment_only():

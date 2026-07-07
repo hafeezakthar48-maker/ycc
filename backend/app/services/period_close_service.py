@@ -173,6 +173,8 @@ def generate_period_close_actions(
             results.append(_generate_payroll_accrual(account_set_id, period, generated_by))
         elif action == "tax_accrual":
             results.append(_generate_tax_accrual(account_set_id, period, generated_by))
+        elif action == "tax_surtax_accrual":
+            results.append(_generate_tax_surtax_accrual(account_set_id, period, generated_by))
         elif action == "fx_revaluation":
             results.append(_generate_fx_revaluation(account_set_id, period, generated_by))
         elif action == "profit_loss_carryforward":
@@ -266,6 +268,44 @@ def _generate_tax_accrual(account_set_id: str, period: str, generated_by: str) -
     if existing_entries:
         return _action_result(source_type, "existing", existing_entries, _money(total_amount), "税费计提分录已存在。")
     return _action_result(source_type, "skipped", [], Decimal("0.00"), "税费计提规则未计算出应计提金额。")
+
+
+def _generate_tax_surtax_accrual(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:
+    source_type = "tax_surtax_accrual"
+    existing = _existing_entries(account_set_id, period, source_type)
+    if existing:
+        return _action_result(source_type, "existing", existing, _entry_amount(existing), "附加税计提分录已存在。")
+
+    from app.services.accounting_service import list_journal_entries
+    from app.services.tax_accounting_service import calculate_surtax, post_surtax_accrual
+
+    unpaid_vat_entries = [
+        entry
+        for entry in list_journal_entries(account_set_id, period).entries
+        if entry.status == "posted" and entry.source_type == "tax_unpaid_vat_transfer"
+    ]
+    vat_payable = _money(
+        sum(
+            (
+                line.base_amount
+                for entry in unpaid_vat_entries
+                for line in entry.lines
+                if line.account_code == "222102" and line.direction == "credit"
+            ),
+            Decimal("0.00"),
+        )
+    )
+    if vat_payable <= Decimal("0.00"):
+        return _action_result(source_type, "skipped", [], Decimal("0.00"), "本期间没有可计提附加税的未交增值税。")
+
+    result = calculate_surtax(
+        vat_payable=vat_payable,
+        urban_maintenance_rate=Decimal("0.07"),
+        education_rate=Decimal("0.03"),
+        local_education_rate=Decimal("0.02"),
+    )
+    entry = post_surtax_accrual(account_set_id, period, result, generated_by)
+    return _action_result(source_type, "generated", [entry], result.total, "已生成附加税计提分录。")
 
 
 def _generate_fx_revaluation(account_set_id: str, period: str, generated_by: str) -> PeriodCloseActionResult:

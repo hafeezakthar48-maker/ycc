@@ -3,7 +3,12 @@ from decimal import Decimal
 from app.models.tax_accounting import VatLedgerLine
 from app.services.accounting_period_service import reset_accounting_period_store
 from app.services.accounting_service import list_journal_entries, reset_accounting_store
-from app.services.tax_accounting_service import calculate_vat_payable, post_unpaid_vat_transfer
+from app.services.tax_accounting_service import (
+    calculate_surtax,
+    calculate_vat_payable,
+    post_surtax_accrual,
+    post_unpaid_vat_transfer,
+)
 
 
 def setup_function():
@@ -54,4 +59,40 @@ def test_post_unpaid_vat_transfer_moves_payable_to_unpaid_vat():
     assert [(line.account_code, line.direction, line.base_amount) for line in entry.lines] == [
         ("22210103", "debit", Decimal("600.00")),
         ("222102", "credit", Decimal("600.00")),
+    ]
+
+
+def test_calculate_surtax_uses_configured_rates():
+    result = calculate_surtax(
+        vat_payable=Decimal("1000.00"),
+        urban_maintenance_rate=Decimal("0.07"),
+        education_rate=Decimal("0.03"),
+        local_education_rate=Decimal("0.02"),
+    )
+
+    assert result.urban == Decimal("70.00")
+    assert result.education == Decimal("30.00")
+    assert result.local == Decimal("20.00")
+    assert result.total == Decimal("120.00")
+
+
+def test_post_surtax_accrual_posts_tax_and_surcharge_liability():
+    result = calculate_surtax(
+        vat_payable=Decimal("1000.00"),
+        urban_maintenance_rate=Decimal("0.07"),
+        education_rate=Decimal("0.03"),
+        local_education_rate=Decimal("0.02"),
+    )
+
+    entry = post_surtax_accrual(
+        account_set_id="default",
+        period="2026-06",
+        surtax_result=result,
+        actor_id="tax-user",
+    )
+
+    assert entry.source_id == "tax_surtax_accrual:default:2026-06"
+    assert [(line.account_code, line.direction, line.base_amount) for line in entry.lines] == [
+        ("6403", "debit", Decimal("120.00")),
+        ("222103", "credit", Decimal("120.00")),
     ]

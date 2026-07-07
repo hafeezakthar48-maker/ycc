@@ -10,6 +10,7 @@ PeriodCloseActionType = Literal[
     "fixed_asset_depreciation",
     "payroll_accrual",
     "tax_accrual",
+    "tax_surtax_accrual",
     "fx_revaluation",
     "profit_loss_carryforward",
     "year_end_profit_distribution",

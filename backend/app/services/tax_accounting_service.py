@@ -3,6 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import HTTPException
 
+from app.models.tax_accounting import SurtaxCalculationResult
 from app.models.accounting import JournalEntryCreate, JournalLineCreate
 from app.services.accounting_period_service import is_accounting_period_closed, validate_account_set
 from app.services.accounting_service import get_chart_of_accounts, list_journal_entries, post_journal_entry
@@ -14,6 +15,23 @@ MONEY_QUANT = Decimal("0.01")
 def calculate_vat_payable(output_vat: Decimal, input_vat: Decimal, input_transfer_out: Decimal) -> Decimal:
     payable = _money(Decimal(output_vat) - Decimal(input_vat) + Decimal(input_transfer_out))
     return max(payable, Decimal("0.00"))
+
+
+def calculate_surtax(
+    vat_payable: Decimal,
+    urban_maintenance_rate: Decimal,
+    education_rate: Decimal,
+    local_education_rate: Decimal,
+) -> SurtaxCalculationResult:
+    urban = _money(Decimal(vat_payable) * Decimal(urban_maintenance_rate))
+    education = _money(Decimal(vat_payable) * Decimal(education_rate))
+    local = _money(Decimal(vat_payable) * Decimal(local_education_rate))
+    return SurtaxCalculationResult(
+        urban=urban,
+        education=education,
+        local=local,
+        total=_money(urban + education + local),
+    )
 
 
 def post_unpaid_vat_transfer(account_set_id: str, period: str, amount: Decimal, actor_id: str):
@@ -51,6 +69,39 @@ def post_unpaid_vat_transfer(account_set_id: str, period: str, amount: Decimal, 
                     amount=amount,
                     description="转入未交增值税",
                 ),
+            ],
+        )
+    )
+
+
+def post_surtax_accrual(
+    account_set_id: str,
+    period: str,
+    surtax_result: SurtaxCalculationResult,
+    actor_id: str,
+):
+    _validate_period_open(account_set_id, period)
+    amount = _positive_money(surtax_result.total, "附加税计提金额必须大于 0。")
+    source_type = "tax_surtax_accrual"
+    source_id = f"{source_type}:{account_set_id}:{period}"
+    existing = _existing_entry(account_set_id, period, source_type, source_id)
+    if existing is not None:
+        return existing
+
+    account_names = _account_names(account_set_id)
+    return post_journal_entry(
+        JournalEntryCreate(
+            account_set_id=account_set_id,
+            entry_date=_period_end_date(period),
+            source_type=source_type,
+            source_id=source_id,
+            description=f"{period} 附加税计提",
+            base_currency="CNY",
+            created_by=actor_id,
+            posted_by=actor_id,
+            lines=[
+                _journal_line("6403", account_names, "debit", amount, "计提税金及附加"),
+                _journal_line("222103", account_names, "credit", amount, "应交城建税及教育费附加"),
             ],
         )
     )
