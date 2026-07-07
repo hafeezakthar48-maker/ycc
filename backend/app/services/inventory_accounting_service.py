@@ -5,7 +5,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.models.accounting import AuxiliaryDimensionCreate, JournalEntryCreate, JournalLineCreate, JournalLineDimension
-from app.models.inventory_accounting import InventoryBalance, InventoryMovement
+from app.models.inventory_accounting import InventoryBalance, InventoryMovement, InventorySalesIssueResult
 from app.services.accounting_period_service import is_accounting_period_closed, validate_account_set
 from app.services.accounting_service import get_chart_of_accounts, post_journal_entry, upsert_auxiliary_dimension
 
@@ -102,6 +102,94 @@ def post_purchase_receipt(
     return movement
 
 
+def post_sales_issue(
+    account_set_id: str,
+    sku_id: str,
+    warehouse_id: str,
+    period: str,
+    quantity: Decimal,
+    actor_id: str,
+) -> InventorySalesIssueResult:
+    _validate_period_open(account_set_id, period)
+    quantity = _quantity(quantity)
+    if quantity <= Decimal("0.0000"):
+        raise HTTPException(status_code=422, detail="出库数量必须大于 0。")
+
+    _ensure_dimensions(account_set_id, sku_id, warehouse_id)
+    balance = get_inventory_balance(account_set_id, sku_id, warehouse_id)
+    ensure_available_stock(balance, quantity)
+    unit_cost = _money(balance.moving_average_cost)
+    cost_amount = _money(quantity * unit_cost)
+    if quantity == balance.quantity:
+        remaining_amount = Decimal("0.00")
+        remaining_cost = Decimal("0.00")
+    else:
+        remaining_amount = _money(balance.amount - cost_amount)
+        if remaining_amount < Decimal("0.00"):
+            raise HTTPException(status_code=409, detail="出库成本会导致库存金额为负，不能结转销售成本。")
+        remaining_cost = calculate_moving_average_cost(
+            existing_quantity=Decimal("0.0000"),
+            existing_amount=Decimal("0.00"),
+            receipt_quantity=balance.quantity - quantity,
+            receipt_amount=remaining_amount,
+        )
+
+    source_type = "inventory_sales_issue"
+    source_id = f"{source_type}:{account_set_id}:{period}:{sku_id}:{warehouse_id}:{len(_INVENTORY_MOVEMENTS) + 1}"
+    entry = post_journal_entry(
+        JournalEntryCreate(
+            account_set_id=account_set_id,
+            entry_date=_period_end_date(period),
+            source_type=source_type,
+            source_id=source_id,
+            description=f"{period} {sku_id} 销售出库成本结转",
+            base_currency="CNY",
+            created_by=actor_id,
+            posted_by=actor_id,
+            lines=build_sales_issue_lines(account_set_id, cost_amount, sku_id, warehouse_id),
+        )
+    )
+    movement = InventoryMovement(
+        movement_id=f"im-{uuid4().hex[:12]}",
+        account_set_id=account_set_id,
+        sku_id=sku_id,
+        warehouse_id=warehouse_id,
+        movement_date=_period_end_date(period),
+        movement_type="sales_issue",
+        quantity=quantity,
+        amount=cost_amount,
+        source_id=source_id,
+        unit_cost=unit_cost,
+        journal_entry_id=entry.id,
+    )
+    _INVENTORY_MOVEMENTS.append(movement)
+    _INVENTORY_BALANCES[_balance_key(account_set_id, sku_id, warehouse_id)] = InventoryBalance(
+        account_set_id=account_set_id,
+        sku_id=sku_id,
+        warehouse_id=warehouse_id,
+        quantity=_quantity(balance.quantity - quantity),
+        amount=remaining_amount,
+        moving_average_cost=remaining_cost,
+    )
+    return InventorySalesIssueResult(
+        account_set_id=account_set_id,
+        sku_id=sku_id,
+        warehouse_id=warehouse_id,
+        period=period,
+        movement_id=movement.movement_id,
+        source_id=source_id,
+        quantity=quantity,
+        cost_amount=cost_amount,
+        unit_cost=unit_cost,
+        journal_entry_id=entry.id,
+    )
+
+
+def ensure_available_stock(balance: InventoryBalance, issue_quantity: Decimal) -> None:
+    if balance.quantity < issue_quantity:
+        raise HTTPException(status_code=409, detail="库存数量不足，不能结转销售成本。")
+
+
 def build_purchase_receipt_lines(
     account_set_id: str,
     amount: Decimal,
@@ -131,6 +219,41 @@ def build_purchase_receipt_lines(
             base_amount=_money(amount),
             description=f"{supplier_id} 采购挂账",
             dimensions=[JournalLineDimension(dimension_type="supplier", dimension_code=supplier_id)],
+        ),
+    ]
+
+
+def build_sales_issue_lines(
+    account_set_id: str,
+    cost_amount: Decimal,
+    sku_id: str,
+    warehouse_id: str,
+) -> list[JournalLineCreate]:
+    account_names = _account_names(account_set_id)
+    return [
+        JournalLineCreate(
+            account_code="6401",
+            account_name=account_names.get("6401", "主营业务成本"),
+            direction="debit",
+            original_amount=_money(cost_amount),
+            base_amount=_money(cost_amount),
+            description=f"{sku_id} 销售成本结转",
+            dimensions=[
+                JournalLineDimension(dimension_type="sku", dimension_code=sku_id),
+                JournalLineDimension(dimension_type="warehouse", dimension_code=warehouse_id),
+            ],
+        ),
+        JournalLineCreate(
+            account_code="1405",
+            account_name=account_names.get("1405", "库存商品"),
+            direction="credit",
+            original_amount=_money(cost_amount),
+            base_amount=_money(cost_amount),
+            description=f"{sku_id} 销售出库",
+            dimensions=[
+                JournalLineDimension(dimension_type="sku", dimension_code=sku_id),
+                JournalLineDimension(dimension_type="warehouse", dimension_code=warehouse_id),
+            ],
         ),
     ]
 

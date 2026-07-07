@@ -13,6 +13,7 @@ from app.services.accounting_service import (
 )
 from app.services.fixed_asset_accounting_service import capitalize_fixed_asset, reset_fixed_asset_accounting_store
 from app.services.fixed_asset_service import create_fixed_asset, reset_fixed_asset_store
+from app.services.inventory_accounting_service import post_purchase_receipt, post_sales_issue, reset_inventory_accounting_store
 from app.services.payroll_service import calculate_payroll, reset_payroll_store
 from app.services.period_close_service import (
     generate_period_close_actions,
@@ -33,6 +34,7 @@ def setup_function():
     reset_payroll_store()
     reset_period_close_store()
     reset_receivable_payable_store()
+    reset_inventory_accounting_store()
 
 
 def test_start_period_close_run_records_scope_and_status():
@@ -393,3 +395,36 @@ def test_bad_debt_provision_action_posts_allowance_entry_and_is_idempotent():
     assert second[0].status == "existing"
     assert any(line.account_code == "6701" and line.direction == "debit" for line in entry.lines)
     assert any(line.account_code == "1231" and line.direction == "credit" for line in entry.lines)
+
+
+def test_inventory_cost_rollforward_action_reports_posted_sales_issue():
+    post_purchase_receipt(
+        account_set_id="default",
+        sku_id="SKU-001",
+        warehouse_id="WH-SH",
+        period="2026-06",
+        quantity=Decimal("10"),
+        amount=Decimal("1000.00"),
+        supplier_id="SUP-001",
+        actor_id="inventory-user",
+    )
+    issue = post_sales_issue(
+        account_set_id="default",
+        sku_id="SKU-001",
+        warehouse_id="WH-SH",
+        period="2026-06",
+        quantity=Decimal("3"),
+        actor_id="inventory-user",
+    )
+
+    results = generate_period_close_actions(
+        account_set_id="default",
+        period="2026-06",
+        actions=["inventory_cost_rollforward"],
+        generated_by="finance-user",
+    )
+
+    assert results[0].action_type == "inventory_cost_rollforward"
+    assert results[0].status == "existing"
+    assert results[0].amount == Decimal("300.00")
+    assert results[0].journal_entry_ids == [issue.journal_entry_id]

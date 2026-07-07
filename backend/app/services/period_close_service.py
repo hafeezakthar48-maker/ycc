@@ -130,6 +130,13 @@ def run_period_close_checks(account_set_id: str, period: str) -> list[PeriodClos
             message="工资计提将在生成结账动作时按可用工资摘要生成。",
         ),
         PeriodCloseCheckItem(
+            check_code="inventory_cost_ready",
+            check_name="存货成本结转准备",
+            status="passed",
+            severity="warning",
+            message="销售出库成本分录将在存货成本结转动作中汇总校验。",
+        ),
+        PeriodCloseCheckItem(
             check_code="tax_rule_ready",
             check_name="税费计提规则准备",
             status="warning",
@@ -174,6 +181,8 @@ def generate_period_close_actions(
             results.append(_generate_year_end_profit_distribution(account_set_id, period, generated_by))
         elif action == "bad_debt_provision":
             results.append(_generate_bad_debt_provision(account_set_id, period, generated_by))
+        elif action == "inventory_cost_rollforward":
+            results.append(_generate_inventory_cost_rollforward(account_set_id, period, generated_by))
         else:
             raise HTTPException(status_code=422, detail=f"不支持的期末动作：{action}")
     return results
@@ -412,6 +421,30 @@ def _generate_bad_debt_provision(account_set_id: str, period: str, generated_by:
         credit_rows=[(provision.credit_account_code, amount, provision.credit_account_name)],
     )
     return _action_result(source_type, "generated", [entry], amount, "已生成坏账准备分录。")
+
+
+def _generate_inventory_cost_rollforward(
+    account_set_id: str,
+    period: str,
+    generated_by: str,
+) -> PeriodCloseActionResult:
+    source_type = "inventory_cost_rollforward"
+    from app.services.accounting_service import list_journal_entries
+
+    entries = [
+        entry
+        for entry in list_journal_entries(account_set_id, period).entries
+        if entry.status == "posted" and entry.source_type == "inventory_sales_issue"
+    ]
+    if not entries:
+        return _action_result(source_type, "skipped", [], Decimal("0.00"), "本期间没有已生成的销售出库成本分录。")
+    return _action_result(
+        source_type,
+        "existing",
+        entries,
+        _entry_amount(entries),
+        f"{generated_by} 已确认本期销售出库成本分录。",
+    )
 
 
 def _post_grouped_entry(

@@ -14,6 +14,7 @@ PeriodCloseActionType = Literal[
     "profit_loss_carryforward",
     "year_end_profit_distribution",
     "bad_debt_provision",
+    "inventory_cost_rollforward",
 ]
 
 
