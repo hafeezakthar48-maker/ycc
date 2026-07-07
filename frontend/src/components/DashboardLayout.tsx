@@ -27,6 +27,7 @@ import RiskPanel from "./RiskPanel";
 import StatementArchivePanel from "./StatementArchivePanel";
 import StatementMappingPanel from "./StatementMappingPanel";
 import SystemAdminPanel from "./SystemAdminPanel";
+import TaxAccountingPanel from "./TaxAccountingPanel";
 import VoucherCenterPanel from "./VoucherCenterPanel";
 import VoucherDraftPanel from "./VoucherDraftPanel";
 
@@ -125,6 +126,7 @@ export default function DashboardLayout({ modules, homeDashboard, overview, repo
           <ReceivablePayablePanel period={overview.period} />
           <BankReconciliationPanel period={overview.period} />
           <InventoryAccountingPanel period={overview.period} />
+          <TaxAccountingPanel period={overview.period} />
           <FixedAssetPanel period={overview.period} />
           <PayrollPanel period={overview.period} />
           <PeriodClosePanel period={overview.period} />

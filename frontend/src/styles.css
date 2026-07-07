@@ -1946,10 +1946,39 @@ button:disabled {
   min-width: 520px;
 }
 
+.tax-accounting-panel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.tax-accounting-toolbar,
+.tax-accounting-actionbar {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.tax-accounting-summary-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.tax-accounting-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+.tax-accounting-vat-table {
+  min-width: 720px;
+}
+
+.tax-accounting-worksheet-table {
+  min-width: 460px;
+}
+
 @media (max-width: 900px) {
   .period-close-toolbar,
   .period-close-summary-grid,
-  .period-close-grid {
+  .period-close-grid,
+  .tax-accounting-summary-grid,
+  .tax-accounting-grid {
     grid-template-columns: 1fr;
   }
 

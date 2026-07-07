@@ -81,6 +81,14 @@ import type {
   InventoryMovement
 } from "../types/inventoryAccounting";
 import type {
+  SurtaxAccrualRequest,
+  TaxAccountingEntryResponse,
+  TaxAmountPostRequest,
+  TaxFilingWorksheet,
+  TaxPaymentPostRequest,
+  VatLedgerLineListResponse
+} from "../types/taxAccounting";
+import type {
   AccountBalanceTableResponse,
   AccountSetListResponse,
   AccountingPeriodItem,
@@ -313,6 +321,42 @@ async function mutateInventoryAccountingJson<T>(
   });
   if (!response.ok) {
     throw new Error(`存货核算 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function requestTaxAccountingJson<T>(
+  path: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    headers: { "X-Actor-Id": actorId }
+  });
+  if (!response.ok) {
+    throw new Error(`税务核算 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function mutateTaxAccountingJson<T>(
+  path: string,
+  body: unknown,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Actor-Id": actorId
+    },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    throw new Error(`税务核算 API 请求失败：${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -1038,6 +1082,98 @@ export function recordInventoryCountVariance(
 ): Promise<InventoryCountVarianceResult> {
   return mutateInventoryAccountingJson<InventoryCountVarianceResult>(
     "/api/v1/inventory-accounting/count-variances",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchVatLedger(
+  accountSetId: string,
+  period: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<VatLedgerLineListResponse> {
+  const query = new URLSearchParams({ account_set_id: accountSetId, period });
+  return requestTaxAccountingJson<VatLedgerLineListResponse>(
+    `/api/v1/tax-accounting/vat-ledger?${query.toString()}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchTaxFilingWorksheet(
+  accountSetId: string,
+  period: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<TaxFilingWorksheet> {
+  const query = new URLSearchParams({ account_set_id: accountSetId, period });
+  return requestTaxAccountingJson<TaxFilingWorksheet>(
+    `/api/v1/tax-accounting/filing-worksheet?${query.toString()}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function postUnpaidVatTransfer(
+  request: TaxAmountPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<TaxAccountingEntryResponse> {
+  return mutateTaxAccountingJson<TaxAccountingEntryResponse>(
+    "/api/v1/tax-accounting/unpaid-vat-transfer",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function postSurtaxAccrual(
+  request: SurtaxAccrualRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<TaxAccountingEntryResponse> {
+  return mutateTaxAccountingJson<TaxAccountingEntryResponse>(
+    "/api/v1/tax-accounting/surtax-accrual",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function postIncomeTaxAccrual(
+  request: TaxAmountPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<TaxAccountingEntryResponse> {
+  return mutateTaxAccountingJson<TaxAccountingEntryResponse>(
+    "/api/v1/tax-accounting/income-tax-accrual",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function postTaxPayment(
+  request: TaxPaymentPostRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<TaxAccountingEntryResponse> {
+  return mutateTaxAccountingJson<TaxAccountingEntryResponse>(
+    "/api/v1/tax-accounting/tax-payments",
     request,
     apiBase,
     fetcher,

@@ -579,6 +579,7 @@ POST /api/v1/period-close/reopen
     "fixed_asset_depreciation",
     "payroll_accrual",
     "tax_accrual",
+    "tax_surtax_accrual",
     "fx_revaluation",
     "bad_debt_provision",
     "inventory_cost_rollforward",
@@ -605,7 +606,7 @@ POST /api/v1/period-close/reopen
 ```
 
 生成接口会先运行检查清单，存在阻断项时返回 `409`；`preview=true` 时只返回将要生成的动作结果，不写入正式分录。实际生成时会按来源键幂等处理，同一账套、期间、动作和来源重复执行不会重复过账。
-外币期末重估只生成本位币 CNY 调整分录，原币金额保持不变；坏账准备按往来账龄规则生成借 `6701`、贷 `1231` 的正式分录；存货成本结转动作汇总当期已生成的销售出库成本分录；损益结转按月结转至 `4103 本年利润`，年结再转入 `4104 利润分配-未分配利润`。
+外币期末重估只生成本位币 CNY 调整分录，原币金额保持不变；坏账准备按往来账龄规则生成借 `6701`、贷 `1231` 的正式分录；存货成本结转动作汇总当期已生成的销售出库成本分录；附加税计提动作按当期未交增值税结转金额生成借 `6403`、贷 `222103` 的正式分录；损益结转按月结转至 `4103 本年利润`，年结再转入 `4104 利润分配-未分配利润`。
 期间结账接口支持 `X-Actor-Id` 请求头，分别受 `period_close.view`、`period_close.check`、`period_close.generate`、`period_close.close` 和 `period_close.reopen` 权限控制，并记录 `period_close.run_started`、`period_close.runs_viewed`、`period_close.checks_completed`、`period_close.actions_previewed`、`period_close.actions_generated`、`period_close.period_closed` 和 `period_close.period_reopened` 审计日志；坏账准备动作还会记录 `receivable_payable.bad_debt.provision`。
 
 ## 账簿读模型 MVP
@@ -985,6 +986,91 @@ POST /api/v1/inventory-accounting/count-variances
 采购入库借 `1405` 贷 `2202`；销售出库借 `6401` 贷 `1405`；跌价准备借 `6701` 贷 `1471`；盘盈盘亏先进入 `1901 待处理财产损溢`。来源键分别为 `inventory_receipt:{account_set_id}:{period}:{sku_id}:{supplier_id}`、`inventory_sales_issue:{account_set_id}:{period}:{sku_id}:{warehouse_id}:{sequence}`、`inventory_impairment:{account_set_id}:{period}:{sku_id}` 和 `inventory_count_variance:{account_set_id}:{period}:{sku_id}:{warehouse_id}`。接口支持 `X-Actor-Id` 请求头，分别受 `inventory_accounting.read`、`inventory_accounting.receipt`、`inventory_accounting.issue`、`inventory_accounting.impair` 和 `inventory_accounting.count` 权限控制，并记录 `inventory_accounting.*` 审计事件。
 
 当前库存台账为内存 MVP，用于验证正式分录和移动加权成本；已关闭期间拒绝新增存货正式分录，不接 WMS 实时库存、批次保质期、生产 BOM 或跨境电商平台真实订单。
+
+## 税务核算与申报底稿 Phase 13
+
+```text
+GET /api/v1/tax-accounting/vat-ledger?account_set_id=default&period=2026-06
+GET /api/v1/tax-accounting/filing-worksheet?account_set_id=default&period=2026-06
+POST /api/v1/tax-accounting/unpaid-vat-transfer
+POST /api/v1/tax-accounting/surtax-accrual
+POST /api/v1/tax-accounting/income-tax-accrual
+POST /api/v1/tax-accounting/tax-payments
+```
+
+增值税台账返回正式分录来源、发票号、税基、税额和方向：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "total": 2,
+  "lines": [
+    {
+      "tax_direction": "output",
+      "invoice_no": "INV-001",
+      "tax_base": "1000.00",
+      "tax_amount": "130.00",
+      "counterparty_id": "CUST-001",
+      "source_journal_entry_id": "je-001"
+    }
+  ]
+}
+```
+
+申报底稿返回销项、进项、进项转出、应交增值税、附加税和企业所得税：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "output_vat": "130.00",
+  "input_vat": "104.00",
+  "input_transfer_out": "0.00",
+  "vat_payable": "26.00",
+  "surtax_payable": "3.12",
+  "income_tax_payable": "5000.00"
+}
+```
+
+未交增值税结转和企业所得税计提请求：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "amount": "26.00"
+}
+```
+
+附加税计提请求：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-06",
+  "vat_payable": "26.00",
+  "urban_maintenance_rate": "0.07",
+  "education_rate": "0.03",
+  "local_education_rate": "0.02"
+}
+```
+
+纳税支付请求：
+
+```json
+{
+  "account_set_id": "default",
+  "period": "2026-07",
+  "tax_account_code": "222102",
+  "amount": "26.00",
+  "bank_account_code": "1002"
+}
+```
+
+未交增值税结转借 `22210103` 贷 `222102`；附加税计提借 `6403` 贷 `222103`；所得税计提借 `6801` 贷 `222104`；纳税支付借税费明细科目、贷银行存款。来源键分别为 `tax_unpaid_vat_transfer:{account_set_id}:{period}`、`tax_surtax_accrual:{account_set_id}:{period}`、`tax_income_tax_accrual:{account_set_id}:{period}` 和 `tax_payment:{account_set_id}:{period}:{tax_account_code}`。接口支持 `X-Actor-Id` 请求头，分别受 `tax_accounting.read`、`tax_accounting.accrue`、`tax_accounting.pay` 权限控制，并记录 `tax_accounting.vat_ledger.read`、`tax_accounting.worksheet.read`、`tax_accounting.vat.transfer`、`tax_accounting.surtax.accrue`、`tax_accounting.income_tax.accrue` 和 `tax_accounting.payment.post` 审计事件。
+
+当前申报底稿只用于计算和复核，不接税局真实申报接口，不自动做抵扣认证，不做真实发票验真，不处理复杂税收优惠备案，不替代税务师判断；已关闭期间拒绝新增税费计提、结转和缴款正式分录。
 
 ## 财务报表自动生成 MVP
 
