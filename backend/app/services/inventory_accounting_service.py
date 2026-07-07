@@ -47,6 +47,20 @@ def get_inventory_balance(account_set_id: str, sku_id: str, warehouse_id: str) -
     )
 
 
+def list_inventory_balances(account_set_id: str = "default") -> list[InventoryBalance]:
+    validate_account_set(account_set_id)
+    balances = [balance for balance in _INVENTORY_BALANCES.values() if balance.account_set_id == account_set_id]
+    balances.sort(key=lambda item: (item.sku_id, item.warehouse_id))
+    return balances
+
+
+def list_inventory_movements(account_set_id: str = "default") -> list[InventoryMovement]:
+    validate_account_set(account_set_id)
+    movements = [movement for movement in _INVENTORY_MOVEMENTS if movement.account_set_id == account_set_id]
+    movements.sort(key=lambda item: (item.movement_date, item.sku_id, item.warehouse_id, item.movement_id))
+    return movements
+
+
 def post_purchase_receipt(
     account_set_id: str,
     sku_id: str,

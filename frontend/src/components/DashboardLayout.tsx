@@ -15,6 +15,7 @@ import FinancialStatementPanel from "./FinancialStatementPanel";
 import FixedAssetPanel from "./FixedAssetPanel";
 import HomeDashboardPanel from "./HomeDashboardPanel";
 import InvoiceOcrPanel from "./InvoiceOcrPanel";
+import InventoryAccountingPanel from "./InventoryAccountingPanel";
 import LedgerPanel from "./LedgerPanel";
 import MetricCard from "./MetricCard";
 import PayrollPanel from "./PayrollPanel";
@@ -123,6 +124,7 @@ export default function DashboardLayout({ modules, homeDashboard, overview, repo
           <LedgerPanel period={overview.period} />
           <ReceivablePayablePanel period={overview.period} />
           <BankReconciliationPanel period={overview.period} />
+          <InventoryAccountingPanel period={overview.period} />
           <FixedAssetPanel period={overview.period} />
           <PayrollPanel period={overview.period} />
           <PeriodClosePanel period={overview.period} />

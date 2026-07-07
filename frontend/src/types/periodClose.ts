@@ -19,6 +19,7 @@ export type PeriodCloseActionType =
   | "tax_accrual"
   | "fx_revaluation"
   | "profit_loss_carryforward"
+  | "inventory_cost_rollforward"
   | "year_end_profit_distribution"
   | "bad_debt_provision";
 

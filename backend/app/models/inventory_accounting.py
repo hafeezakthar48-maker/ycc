@@ -78,3 +78,56 @@ class InventoryCountVarianceResult(BaseModel):
     approved_by: str
     approved_at: str
     journal_entry_id: str | None = None
+
+
+class InventoryAccountingSummaryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str
+    total_balances: int
+    total_movements: int
+    balances: list[InventoryBalance]
+    movements: list[InventoryMovement]
+
+
+class InventoryPurchaseReceiptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    sku_id: str = Field(min_length=1, max_length=64)
+    warehouse_id: str = Field(min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    quantity: Decimal = Field(gt=Decimal("0"), max_digits=16, decimal_places=4)
+    amount: Decimal = Field(gt=Decimal("0"), max_digits=16, decimal_places=2)
+    supplier_id: str = Field(min_length=1, max_length=64)
+
+
+class InventorySalesIssueRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    sku_id: str = Field(min_length=1, max_length=64)
+    warehouse_id: str = Field(min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    quantity: Decimal = Field(gt=Decimal("0"), max_digits=16, decimal_places=4)
+
+
+class InventoryImpairmentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    sku_id: str = Field(min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    amount: Decimal = Field(gt=Decimal("0"), max_digits=16, decimal_places=2)
+
+
+class InventoryCountVarianceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_set_id: str = Field(default="default", min_length=1, max_length=64)
+    sku_id: str = Field(min_length=1, max_length=64)
+    warehouse_id: str = Field(min_length=1, max_length=64)
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    actual_quantity: Decimal = Field(ge=Decimal("0"), max_digits=16, decimal_places=4)
+    approved_by: str = Field(min_length=1, max_length=60)
+    approved_at: str = Field(min_length=1, max_length=40)

@@ -70,6 +70,17 @@ import type {
 import type { HomeDashboard } from "../types/homeDashboard";
 import type { InvoiceOcrResponse } from "../types/invoiceOcr";
 import type {
+  InventoryAccountingSummary,
+  InventoryCountVarianceRequest,
+  InventoryCountVarianceResult,
+  InventoryImpairmentRequest,
+  InventoryImpairmentResult,
+  InventoryPurchaseReceiptRequest,
+  InventorySalesIssueRequest,
+  InventorySalesIssueResult,
+  InventoryMovement
+} from "../types/inventoryAccounting";
+import type {
   AccountBalanceTableResponse,
   AccountSetListResponse,
   AccountingPeriodItem,
@@ -266,6 +277,42 @@ async function mutatePeriodCloseJson<T>(
   });
   if (!response.ok) {
     throw new Error(`期间结账 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function requestInventoryAccountingJson<T>(
+  path: string,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    headers: { "X-Actor-Id": actorId }
+  });
+  if (!response.ok) {
+    throw new Error(`存货核算 API 请求失败：${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function mutateInventoryAccountingJson<T>(
+  path: string,
+  body: unknown,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<T> {
+  const response = await fetcher(`${apiBase}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Actor-Id": actorId
+    },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    throw new Error(`存货核算 API 请求失败：${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -917,6 +964,80 @@ export function disposeFixedAssetFormally(
 ): Promise<FixedAssetDisposalAccountingResult> {
   return mutateFixedAssetJson<FixedAssetDisposalAccountingResult>(
     "/api/v1/fixed-asset-accounting/disposal",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function fetchInventoryAccountingBalances(
+  accountSetId = "default",
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<InventoryAccountingSummary> {
+  return requestInventoryAccountingJson<InventoryAccountingSummary>(
+    `/api/v1/inventory-accounting/balances?account_set_id=${encodeURIComponent(accountSetId)}`,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function postInventoryPurchaseReceipt(
+  request: InventoryPurchaseReceiptRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<InventoryMovement> {
+  return mutateInventoryAccountingJson<InventoryMovement>(
+    "/api/v1/inventory-accounting/purchase-receipts",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function postInventorySalesIssue(
+  request: InventorySalesIssueRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<InventorySalesIssueResult> {
+  return mutateInventoryAccountingJson<InventorySalesIssueResult>(
+    "/api/v1/inventory-accounting/sales-issues",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function recordInventoryImpairment(
+  request: InventoryImpairmentRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<InventoryImpairmentResult> {
+  return mutateInventoryAccountingJson<InventoryImpairmentResult>(
+    "/api/v1/inventory-accounting/impairments",
+    request,
+    apiBase,
+    fetcher,
+    actorId
+  );
+}
+
+export function recordInventoryCountVariance(
+  request: InventoryCountVarianceRequest,
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch,
+  actorId = DEFAULT_FINANCE_ACTOR_ID
+): Promise<InventoryCountVarianceResult> {
+  return mutateInventoryAccountingJson<InventoryCountVarianceResult>(
+    "/api/v1/inventory-accounting/count-variances",
     request,
     apiBase,
     fetcher,

@@ -21,6 +21,7 @@ const closeActions: Array<{ type: PeriodCloseActionType; label: string }> = [
   { type: "payroll_accrual", label: "工资计提" },
   { type: "tax_accrual", label: "税费计提" },
   { type: "fx_revaluation", label: "外币重估" },
+  { type: "inventory_cost_rollforward", label: "存货成本结转" },
   { type: "profit_loss_carryforward", label: "损益结转" },
   { type: "bad_debt_provision", label: "坏账准备" },
   { type: "year_end_profit_distribution", label: "年终利润分配" }
@@ -31,6 +32,7 @@ const defaultActions: PeriodCloseActionType[] = [
   "payroll_accrual",
   "tax_accrual",
   "fx_revaluation",
+  "inventory_cost_rollforward",
   "profit_loss_carryforward",
   "bad_debt_provision"
 ];

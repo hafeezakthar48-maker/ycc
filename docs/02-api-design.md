@@ -581,6 +581,7 @@ POST /api/v1/period-close/reopen
     "tax_accrual",
     "fx_revaluation",
     "bad_debt_provision",
+    "inventory_cost_rollforward",
     "profit_loss_carryforward"
   ],
   "tax_accrual_rules": [
@@ -604,7 +605,7 @@ POST /api/v1/period-close/reopen
 ```
 
 生成接口会先运行检查清单，存在阻断项时返回 `409`；`preview=true` 时只返回将要生成的动作结果，不写入正式分录。实际生成时会按来源键幂等处理，同一账套、期间、动作和来源重复执行不会重复过账。
-外币期末重估只生成本位币 CNY 调整分录，原币金额保持不变；坏账准备按往来账龄规则生成借 `6701`、贷 `1231` 的正式分录；损益结转按月结转至 `4103 本年利润`，年结再转入 `4104 利润分配-未分配利润`。
+外币期末重估只生成本位币 CNY 调整分录，原币金额保持不变；坏账准备按往来账龄规则生成借 `6701`、贷 `1231` 的正式分录；存货成本结转动作汇总当期已生成的销售出库成本分录；损益结转按月结转至 `4103 本年利润`，年结再转入 `4104 利润分配-未分配利润`。
 期间结账接口支持 `X-Actor-Id` 请求头，分别受 `period_close.view`、`period_close.check`、`period_close.generate`、`period_close.close` 和 `period_close.reopen` 权限控制，并记录 `period_close.run_started`、`period_close.runs_viewed`、`period_close.checks_completed`、`period_close.actions_previewed`、`period_close.actions_generated`、`period_close.period_closed` 和 `period_close.period_reopened` 审计日志；坏账准备动作还会记录 `receivable_payable.bad_debt.provision`。
 
 ## 账簿读模型 MVP
@@ -892,6 +893,98 @@ POST /api/v1/payroll-accounting/liability-payments
 来源键分别为 `payroll_accrual:{account_set_id}:{period}:{payroll_batch_id}`、`payroll_payment:{account_set_id}:{period}:{payroll_batch_id}` 和 `payroll_liability_payment:{account_set_id}:{payment_period}:{payroll_batch_id}`。同一来源键重复调用返回既有正式分录；已关闭期间拒绝新增计提、发放或缴纳分录。接口支持 `X-Actor-Id` 请求头，分别受 `payroll_accounting.read`、`payroll_accounting.accrue`、`payroll_accounting.pay`、`payroll_accounting.remit` 权限控制，并记录 `payroll_accounting.batch.read`、`payroll_accounting.accrual.post`、`payroll_accounting.payment.post`、`payroll_accounting.liability_payment.post` 审计事件。
 
 当前不接真实银行代发，不保存身份证号、银行卡号或手机号明文，不发送工资条，不做累计预扣预缴完整申报。
+
+## 存货与成本核算 Phase 12
+
+```text
+GET /api/v1/inventory-accounting/balances?account_set_id=default
+POST /api/v1/inventory-accounting/purchase-receipts
+POST /api/v1/inventory-accounting/sales-issues
+POST /api/v1/inventory-accounting/impairments
+POST /api/v1/inventory-accounting/count-variances
+```
+
+余额查询返回账套下 SKU/仓库余额和存货移动流水：
+
+```json
+{
+  "account_set_id": "default",
+  "total_balances": 1,
+  "total_movements": 2,
+  "balances": [
+    {
+      "sku_id": "SKU-001",
+      "warehouse_id": "WH-SH",
+      "quantity": "7.0000",
+      "amount": "700.00",
+      "moving_average_cost": "100.00"
+    }
+  ],
+  "movements": [
+    {
+      "movement_type": "purchase_receipt",
+      "quantity": "10.0000",
+      "amount": "1000.00",
+      "journal_entry_id": "je-xxx"
+    }
+  ]
+}
+```
+
+采购入库请求：
+
+```json
+{
+  "account_set_id": "default",
+  "sku_id": "SKU-001",
+  "warehouse_id": "WH-SH",
+  "period": "2026-06",
+  "quantity": "10",
+  "amount": "1000.00",
+  "supplier_id": "SUP-001"
+}
+```
+
+销售出库请求：
+
+```json
+{
+  "account_set_id": "default",
+  "sku_id": "SKU-001",
+  "warehouse_id": "WH-SH",
+  "period": "2026-06",
+  "quantity": "3"
+}
+```
+
+跌价准备请求：
+
+```json
+{
+  "account_set_id": "default",
+  "sku_id": "SKU-001",
+  "period": "2026-06",
+  "amount": "500.00"
+}
+```
+
+盘点差异请求：
+
+```json
+{
+  "account_set_id": "default",
+  "sku_id": "SKU-001",
+  "warehouse_id": "WH-SH",
+  "period": "2026-06",
+  "actual_quantity": "6",
+  "approved_by": "controller",
+  "approved_at": "2026-06-30T10:00:00Z"
+}
+```
+
+采购入库借 `1405` 贷 `2202`；销售出库借 `6401` 贷 `1405`；跌价准备借 `6701` 贷 `1471`；盘盈盘亏先进入 `1901 待处理财产损溢`。来源键分别为 `inventory_receipt:{account_set_id}:{period}:{sku_id}:{supplier_id}`、`inventory_sales_issue:{account_set_id}:{period}:{sku_id}:{warehouse_id}:{sequence}`、`inventory_impairment:{account_set_id}:{period}:{sku_id}` 和 `inventory_count_variance:{account_set_id}:{period}:{sku_id}:{warehouse_id}`。接口支持 `X-Actor-Id` 请求头，分别受 `inventory_accounting.read`、`inventory_accounting.receipt`、`inventory_accounting.issue`、`inventory_accounting.impair` 和 `inventory_accounting.count` 权限控制，并记录 `inventory_accounting.*` 审计事件。
+
+当前库存台账为内存 MVP，用于验证正式分录和移动加权成本；已关闭期间拒绝新增存货正式分录，不接 WMS 实时库存、批次保质期、生产 BOM 或跨境电商平台真实订单。
 
 ## 财务报表自动生成 MVP
 

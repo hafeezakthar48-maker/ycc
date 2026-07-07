@@ -12,6 +12,7 @@ from app.api.fixed_asset_accounting import router as fixed_asset_accounting_rout
 from app.api.fixed_assets import router as fixed_assets_router
 from app.api.home import router as home_router
 from app.api.invoice_ocr import router as invoice_ocr_router
+from app.api.inventory_accounting import router as inventory_accounting_router
 from app.api.ledger import router as ledger_router
 from app.api.modules import router as modules_router
 from app.api.payroll import router as payroll_router
@@ -38,6 +39,7 @@ def include_api_routers(app: FastAPI) -> None:
     app.include_router(fixed_assets_router)
     app.include_router(home_router)
     app.include_router(invoice_ocr_router)
+    app.include_router(inventory_accounting_router)
     app.include_router(ledger_router)
     app.include_router(payroll_router)
     app.include_router(payroll_accounting_router)
