@@ -122,3 +122,37 @@ def test_pay_payroll_batch_requires_accrual_entry():
         pay_payroll_batch("default", "2026-06", "PAY-2026-06", "1002", "payroll-user")
 
     assert exc_info.value.status_code == 409
+
+
+def test_remit_payroll_liabilities_posts_tax_and_social_security_payments():
+    calculate_payroll(
+        PayrollCalculateRequest(
+            account_set_id="default",
+            period="2026-06",
+            employees=[
+                PayrollEmployeeInput(
+                    employee_id="E001",
+                    employee_name="张会计",
+                    department="财务部",
+                    base_salary=Decimal("10000.00"),
+                    social_security_base=Decimal("10000.00"),
+                    housing_fund_base=Decimal("10000.00"),
+                )
+            ],
+        )
+    )
+    from app.services.payroll_accounting_service import accrue_payroll_batch, pay_payroll_batch, remit_payroll_liabilities
+
+    accrue_payroll_batch("default", "2026-06", "PAY-2026-06", "payroll-user")
+    pay_payroll_batch("default", "2026-06", "PAY-2026-06", "1002", "payroll-user")
+
+    result = remit_payroll_liabilities("default", "2026-07", "PAY-2026-06", "1002", "payroll-user")
+
+    assert result.source_type == "payroll_liability_payment"
+    assert result.source_id == "payroll_liability_payment:default:2026-07:PAY-2026-06"
+    assert [(line.account_code, line.direction, line.base_amount) for line in result.lines] == [
+        ("2211", "debit", Decimal("3330.00")),
+        ("2241", "debit", Decimal("1750.00")),
+        ("2221", "debit", Decimal("115.00")),
+        ("1002", "credit", Decimal("5195.00")),
+    ]

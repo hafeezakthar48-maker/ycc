@@ -134,6 +134,56 @@ def pay_payroll_batch(
     )
 
 
+def build_payroll_liability_payment_lines(
+    batch: PayrollAccountingBatch,
+    bank_account_code: str,
+) -> list[JournalLineCreate]:
+    employer_liabilities = _money(batch.employer_social_security + batch.employer_housing_fund)
+    employee_social_and_fund = _money(batch.employee_social_security + batch.employee_housing_fund)
+    total_payment = _money(employer_liabilities + employee_social_and_fund + batch.individual_income_tax)
+    return _journal_lines(
+        batch.account_set_id,
+        [
+            ("2211", "debit", employer_liabilities, "缴纳企业社保公积金"),
+            ("2241", "debit", employee_social_and_fund, "缴纳个人社保公积金"),
+            ("2221", "debit", batch.individual_income_tax, "缴纳个人所得税"),
+            (bank_account_code, "credit", total_payment, "银行支付薪酬相关款项"),
+        ],
+    )
+
+
+def remit_payroll_liabilities(
+    account_set_id: str,
+    period: str,
+    payroll_batch_id: str,
+    bank_account_code: str,
+    actor_id: str,
+) -> JournalEntryRecord:
+    source_type = "payroll_liability_payment"
+    source_id = _source_id(source_type, account_set_id, period, payroll_batch_id)
+    existing = _existing_entry(account_set_id, period, source_type, source_id)
+    if existing:
+        return existing
+
+    payroll_period = _period_from_payroll_batch_id(payroll_batch_id)
+    batch = get_payroll_accounting_batch(account_set_id, payroll_period, payroll_batch_id)
+    if batch.accrual_journal_entry_id is None:
+        raise HTTPException(status_code=409, detail="工资批次尚未计提，不能缴纳薪酬相关款项。")
+    return post_journal_entry(
+        JournalEntryCreate(
+            account_set_id=account_set_id,
+            entry_date=_period_end_date(period),
+            source_type=source_type,
+            source_id=source_id,
+            description=f"{period} 薪酬税费社保缴纳",
+            base_currency="CNY",
+            created_by=actor_id,
+            posted_by=actor_id,
+            lines=build_payroll_liability_payment_lines(batch, bank_account_code),
+        )
+    )
+
+
 def _source_id(source_type: str, account_set_id: str, period: str, payroll_batch_id: str) -> str:
     return f"{source_type}:{account_set_id}:{period}:{payroll_batch_id}"
 
@@ -178,6 +228,12 @@ def _journal_lines(
 def _period_end_date(period: str) -> str:
     year, month = (int(part) for part in period.split("-"))
     return f"{period}-{monthrange(year, month)[1]:02d}"
+
+
+def _period_from_payroll_batch_id(payroll_batch_id: str) -> str:
+    if not payroll_batch_id.startswith("PAY-") or len(payroll_batch_id) != 11:
+        raise HTTPException(status_code=422, detail="工资批次号必须使用 PAY-YYYY-MM 格式。")
+    return payroll_batch_id.removeprefix("PAY-")
 
 
 def _money(value: Decimal) -> Decimal:
