@@ -3,17 +3,43 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 
-test("往来核算面板展示余额、账龄和应收应付切换", async () => {
+test("往来核算面板展示余额、账龄和应收应付工作台", async () => {
   const panel = await readFile(resolve("src/components/ReceivablePayablePanel.tsx"), "utf8");
+  const styles = await readFile(resolve("src/styles.css"), "utf8");
   const layout = await readFile(resolve("src/components/DashboardLayout.tsx"), "utf8");
   const navigation = await readFile(resolve("src/navigation/osModules.json"), "utf8");
 
   assert.match(panel, /receivable-payable-panel/);
+  assert.match(panel, /from "antd"/);
+  assert.match(panel, /Alert/);
+  assert.match(panel, /Button/);
+  assert.match(panel, /Card/);
+  assert.match(panel, /Segmented/);
+  assert.match(panel, /Statistic/);
+  assert.match(panel, /Table/);
+  assert.match(panel, /Tag/);
+  assert.doesNotMatch(panel, /<Space\s+direction=/);
+  assert.match(panel, /orientation="vertical"/);
   assert.match(panel, /fetchCounterpartyBalances/);
   assert.match(panel, /fetchCounterpartyAging/);
+  assert.match(panel, /往来核算工作台/);
+  assert.match(panel, /余额台账/);
+  assert.match(panel, /账龄分析/);
   assert.match(panel, /应收/);
   assert.match(panel, /应付/);
-  assert.match(panel, /账龄/);
+  assert.match(panel, /未清项/);
+  assert.match(panel, /往来对象/);
+  assert.match(panel, /逾期金额/);
+  assert.match(panel, /刷新/);
+  assert.match(panel, /scroll=\{\{ x:/);
+  assert.doesNotMatch(panel, /<table/);
+  assert.match(styles, /receivable-payable-workbench/);
+  assert.match(styles, /receivable-payable-toolbar/);
+  assert.match(styles, /receivable-payable-summary-grid/);
+  assert.match(styles, /receivable-payable-layout/);
+  assert.match(styles, /\.receivable-payable-panel[\s\S]*scroll-margin-top:\s*84px/);
+  assert.match(styles, /\.receivable-payable-ledger-table\s*\{[^}]*overflow-x:\s*hidden/s);
+  assert.match(styles, /\.receivable-payable-ledger-table\s+\.ant-table-content\s*\{[^}]*overflow-x:\s*auto/s);
   assert.match(layout, /ReceivablePayablePanel/);
   assert.match(navigation, /receivable-payable-panel/);
 });

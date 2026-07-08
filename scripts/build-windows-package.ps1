@@ -50,11 +50,6 @@ function New-IExpressInstaller {
   New-Item -ItemType Directory -Force -Path $iexpressSource | Out-Null
   Copy-Item -Path (Join-Path $SourceStage "*") -Destination $iexpressSource -Recurse -Force
 
-  $setupCmd = Join-Path $iexpressSource "setup.cmd"
-  Set-Content -Path $setupCmd -Encoding ASCII -Value '@echo off
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
-'
-
   $files = Get-ChildItem -Path $iexpressSource -File | Sort-Object Name
   $sourceExe = Get-Item (Join-Path $iexpressSource "ChinaFinanceAIAssistant.exe")
   $sourceFileEntries = @()
@@ -102,7 +97,7 @@ DisplayLicense=
 FinishMessage=
 TargetName=$iexpressTarget
 FriendlyName=China Finance AI Assistant
-AppLaunched=setup.cmd
+AppLaunched=ChinaFinanceAIAssistant.exe
 $($stringEntries -join "`r`n")
 "@
   Set-Content -Path $sedPath -Encoding ASCII -Value $sed
@@ -163,13 +158,20 @@ if (Test-Path $pyBuild) {
   Remove-Item -LiteralPath $pyBuild -Recurse -Force
 }
 
-$specPath = Join-Path $backend "pyinstaller\china-finance-ai-assistant.spec"
-& $venvPython -m PyInstaller --clean --noconfirm --distpath $pyDist --workpath $pyBuild $specPath
-Assert-LastExitCode "PyInstaller"
+$mainSpecPath = Join-Path $backend "pyinstaller\china-finance-ai-assistant.spec"
+$updaterSpecPath = Join-Path $backend "pyinstaller\china-finance-updater.spec"
+& $venvPython -m PyInstaller --clean --noconfirm --distpath $pyDist --workpath $pyBuild $mainSpecPath
+Assert-LastExitCode "PyInstaller main application"
+& $venvPython -m PyInstaller --clean --noconfirm --distpath $pyDist --workpath $pyBuild $updaterSpecPath
+Assert-LastExitCode "PyInstaller native updater"
 
 $exe = Get-ChildItem -Path $pyDist -Recurse -Filter "ChinaFinanceAIAssistant.exe" | Select-Object -First 1
 if (-not $exe) {
   throw "Could not find PyInstaller output: ChinaFinanceAIAssistant.exe"
+}
+$updaterExe = Get-ChildItem -Path $pyDist -Recurse -Filter "ChinaFinanceUpdater.exe" | Select-Object -First 1
+if (-not $updaterExe) {
+  throw "Could not find PyInstaller output: ChinaFinanceUpdater.exe"
 }
 
 if (Test-Path $stage) {
@@ -177,20 +179,26 @@ if (Test-Path $stage) {
 }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item -LiteralPath $exe.FullName -Destination (Join-Path $stage "ChinaFinanceAIAssistant.exe") -Force
-Copy-Item -Path (Join-Path $PSScriptRoot "installer\*.ps1") -Destination $stage -Force
+Copy-Item -LiteralPath $updaterExe.FullName -Destination (Join-Path $stage "ChinaFinanceUpdater.exe") -Force
 
 $readme = @"
-China Finance AI Assistant Windows x64
+中国财务 AI 助手 Windows x64
 
-Install:
-1. Extract this package.
-2. Right-click install.ps1 and run it with PowerShell.
-3. Launch from the desktop or Start Menu shortcut.
+启动：
+1. 解压本发行包到任意目录。
+2. 双击 ChinaFinanceAIAssistant.exe。
+3. 程序会打开独立桌面窗口，不需要浏览器地址栏，也不需要目标电脑安装 Python、Node.js、npm 或运行 PowerShell 脚本。
 
-Uninstall:
-Run uninstall.ps1 in the installation directory.
+交付说明：
+这是便携版独立应用文件。需要创建桌面快捷方式时，可右键 ChinaFinanceAIAssistant.exe 后选择“发送到 > 桌面快捷方式”。
 
-Data directory:
+软件本体更新：
+ChinaFinanceUpdater.exe 是原生独立更新器，由主程序在安装软件本体更新包时调用；不需要手工运行，也不依赖 PowerShell 脚本。
+
+卸载：
+关闭程序后删除解压目录即可。用户数据默认写入本机用户数据目录，避免误删账务演示数据。
+
+数据目录：
 %LOCALAPPDATA%\ChinaFinanceAIAssistant
 "@
 Set-Content -Path (Join-Path $stage "README-INSTALL.txt") -Encoding UTF8 -Value $readme

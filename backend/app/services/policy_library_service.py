@@ -8,7 +8,7 @@ def search_policy_documents(request: PolicySearchRequest) -> PolicySearchRespons
     query_terms = _tokenize(request.query)
     scored: list[PolicySearchResult] = []
 
-    for document in POLICY_DOCUMENTS:
+    for document in _get_policy_documents():
         if request.category and document.category != request.category:
             continue
         score = _score_document(document, query_terms)
@@ -32,14 +32,22 @@ def search_policy_documents(request: PolicySearchRequest) -> PolicySearchRespons
 
 
 def find_policy_by_id(policy_id: str) -> PolicyDocument | None:
-    return next((document for document in POLICY_DOCUMENTS if document.id == policy_id), None)
+    return next((document for document in _get_policy_documents() if document.id == policy_id), None)
 
 
 def _tokenize(query: str) -> list[str]:
-    tokens = [part.strip().lower() for part in re.split(r"[\s,，。；;、]+", query) if part.strip()]
-    if tokens:
-        return tokens
-    return [query.lower()]
+    normalized_query = query.lower()
+    tokens = [part.strip().lower() for part in re.split(r"[\s,，。；;、？?]+", query) if part.strip()]
+    registered_keywords = [
+        keyword.lower()
+        for document in _get_policy_documents()
+        for keyword in document.keywords
+        if keyword.lower() in normalized_query
+    ]
+    unique_tokens = list(dict.fromkeys([*tokens, *registered_keywords]))
+    if unique_tokens:
+        return unique_tokens
+    return [normalized_query]
 
 
 def _score_document(document: PolicyDocument, query_terms: list[str]) -> float:
@@ -77,3 +85,12 @@ def _build_snippets(document: PolicyDocument, query_terms: list[str]) -> list[st
 
 def _trim_snippet(text: str, max_length: int = 110) -> str:
     return text if len(text) <= max_length else f"{text[:max_length]}..."
+
+
+def _get_policy_documents() -> tuple[PolicyDocument, ...]:
+    from app.services.update_center_service import load_installed_policy_documents
+
+    documents_by_id = {document.id: document for document in POLICY_DOCUMENTS}
+    for document in load_installed_policy_documents():
+        documents_by_id[document.id] = document
+    return tuple(documents_by_id.values())

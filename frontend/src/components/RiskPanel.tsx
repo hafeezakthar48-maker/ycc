@@ -1,3 +1,5 @@
+import { Alert, Button, Card, Progress, Space, Table, Tag, Typography } from "antd";
+import type { TableColumnsType } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import {
   addRiskProcessRecord,
@@ -8,13 +10,11 @@ import {
 import type { RiskItem } from "../types/dashboard";
 import type { RiskClosureItem, RiskClosureListResponse, RiskClosureStatus } from "../types/riskClosure";
 
+const { Paragraph, Text } = Typography;
+
 interface RiskPanelProps {
   risks: RiskItem[];
   period: string;
-}
-
-function stars(level: number) {
-  return "★".repeat(level) + "☆".repeat(5 - level);
 }
 
 const statusLabel: Record<RiskClosureStatus, string> = {
@@ -23,6 +23,14 @@ const statusLabel: Record<RiskClosureStatus, string> = {
   processing: "处理中",
   resolved: "待复核",
   closed: "已关闭"
+};
+
+const statusTone: Record<RiskClosureStatus, string> = {
+  open: "default",
+  assigned: "blue",
+  processing: "processing",
+  resolved: "warning",
+  closed: "success"
 };
 
 function toOpenClosure(period: string, risk: RiskItem): RiskClosureItem {
@@ -37,6 +45,16 @@ function toOpenClosure(period: string, risk: RiskItem): RiskClosureItem {
   };
 }
 
+function riskColor(level: number) {
+  if (level >= 4) {
+    return "red";
+  }
+  if (level >= 3) {
+    return "orange";
+  }
+  return "green";
+}
+
 export default function RiskPanel({ risks, period }: RiskPanelProps) {
   const [closureResponse, setClosureResponse] = useState<RiskClosureListResponse | null>(null);
   const [busyRiskId, setBusyRiskId] = useState<string | null>(null);
@@ -46,6 +64,7 @@ export default function RiskPanel({ risks, period }: RiskPanelProps) {
   const items = closureResponse?.items ?? fallbackItems;
   const openCount = closureResponse?.open_count ?? items.filter((item) => item.status !== "closed").length;
   const closedCount = closureResponse?.closed_count ?? items.filter((item) => item.status === "closed").length;
+  const closureProgress = items.length ? Math.round(closedCount / items.length * 100) : 0;
 
   async function reloadClosures() {
     const response = await fetchRiskClosures(period);
@@ -87,107 +106,160 @@ export default function RiskPanel({ risks, period }: RiskPanelProps) {
     }
   }
 
+  const columns: TableColumnsType<RiskClosureItem> = [
+    {
+      title: "风险事项",
+      dataIndex: ["risk", "title"],
+      sorter: (a, b) => a.risk.title.localeCompare(b.risk.title),
+      render: (_value, item) => (
+        <Space orientation="vertical" size={2}>
+          <strong>{item.risk.title}</strong>
+          <Text type="secondary">{item.risk.trigger_reason}</Text>
+        </Space>
+      )
+    },
+    {
+      title: "风险等级",
+      dataIndex: ["risk", "level"],
+      width: 112,
+      sorter: (a, b) => a.risk.level - b.risk.level,
+      render: (_value, item) => <Tag color={riskColor(item.risk.level)}>{item.risk.level_label}</Tag>
+    },
+    {
+      title: "闭环状态",
+      dataIndex: "status",
+      width: 112,
+      filters: Object.entries(statusLabel).map(([value, text]) => ({ text, value })),
+      onFilter: (value, item) => item.status === value,
+      render: (value: RiskClosureStatus) => <Tag color={statusTone[value]}>{statusLabel[value]}</Tag>
+    },
+    {
+      title: "负责人",
+      dataIndex: "owner",
+      width: 120,
+      render: (value: string | null) => value ?? <Text type="secondary">未分派</Text>
+    },
+    {
+      title: "到期日",
+      dataIndex: "due_date",
+      width: 120,
+      render: (value: string | null) => value ?? "-"
+    },
+    {
+      title: "记录",
+      width: 126,
+      render: (_value, item) => (
+        <Space orientation="vertical" size={0}>
+          <Text>处理记录 {item.process_records.length}</Text>
+          <Text type="secondary">复核记录 {item.review_records.length}</Text>
+        </Space>
+      )
+    },
+    {
+      title: "操作",
+      width: 230,
+      render: (_value, item) => (
+        <Space wrap>
+          <Button
+            size="small"
+            loading={busyRiskId === item.risk.id}
+            disabled={item.status === "closed"}
+            onClick={() => runRiskAction(
+              item.risk.id,
+              () => assignRiskOwner(item.risk.id, {
+                period,
+                owner: "财务主管",
+                due_date: "2026-07-10",
+                note: "先复核触发原因和建议检查资料。"
+              })
+            )}
+          >
+            分派
+          </Button>
+          <Button
+            size="small"
+            loading={busyRiskId === item.risk.id}
+            disabled={item.status === "closed"}
+            onClick={() => runRiskAction(
+              item.risk.id,
+              () => addRiskProcessRecord(item.risk.id, {
+                period,
+                handler: item.owner ?? "财务主管",
+                action: "已完成初步复核",
+                note: "已核对触发原因，并形成后续处理建议。",
+                next_status: "processing"
+              })
+            )}
+          >
+            处理
+          </Button>
+          <Button
+            size="small"
+            type="primary"
+            loading={busyRiskId === item.risk.id}
+            disabled={item.status === "closed"}
+            onClick={() => runRiskAction(
+              item.risk.id,
+              () => addRiskReviewRecord(item.risk.id, {
+                period,
+                reviewer: "内控复核员",
+                conclusion: "复核记录完整，准予关闭。",
+                next_status: "closed"
+              })
+            )}
+          >
+            复核关闭
+          </Button>
+        </Space>
+      )
+    }
+  ];
+
   return (
-    <section className="panel risk-panel">
-      <div className="panel-header">
-        <div>
-          <span className="eyebrow">风险预警</span>
-          <h2>异常清单与闭环跟踪</h2>
+    <section className="risk-closure-workbench">
+      <Card
+        title="风险闭环工作台"
+        extra={<Tag color={openCount ? "orange" : "green"}>{period}</Tag>}
+      >
+        <div className="risk-closure-toolbar">
+          <div>
+            <Text className="eyebrow">闭环进度</Text>
+            <Progress percent={closureProgress} status={openCount ? "active" : "success"} />
+          </div>
+          <Space wrap>
+            <Tag color="orange">未关闭 {openCount}</Tag>
+            <Tag color="green">已关闭 {closedCount}</Tag>
+            <Tag>总计 {items.length}</Tag>
+          </Space>
         </div>
-        <strong className="risk-count">{items.length} 项</strong>
-      </div>
 
-      <div className="risk-closure-summary">
-        <span>未关闭 {openCount}</span>
-        <span>已关闭 {closedCount}</span>
-        <span>{period}</span>
-      </div>
+        {error ? <Alert type="warning" showIcon message={error} /> : null}
 
-      {error ? <p className="inline-error">{error}</p> : null}
-
-      <div className="risk-list">
-        {items.map((item) => (
-          <article key={item.risk.id} className="risk-item">
-            <div className="risk-item__title">
-              <h3>{item.risk.title}</h3>
-              <span>{stars(item.risk.level)}</span>
-            </div>
-            <p>{item.risk.description}</p>
-            <div className="risk-meta">
-              <strong>{item.risk.level_label}</strong>
-              <span>{item.risk.trigger_reason}</span>
-            </div>
-            <div className="risk-closure-meta">
-              <span className={`risk-status risk-status--${item.status}`}>{statusLabel[item.status]}</span>
-              <span>负责人：{item.owner ?? "未分派"}</span>
-              <span>到期：{item.due_date ?? "-"}</span>
-            </div>
-            <details>
-              <summary>建议检查资料</summary>
-              <ul>
-                {item.risk.suggested_checks.map((checkItem) => (
-                  <li key={checkItem}>{checkItem}</li>
-                ))}
-              </ul>
-              <p>{item.risk.compliance_note}</p>
-            </details>
-            <div className="risk-record-strip">
-              <span>处理记录 {item.process_records.length}</span>
-              <span>复核记录 {item.review_records.length}</span>
-            </div>
-            <div className="risk-actions">
-              <button
-                type="button"
-                className="button-secondary"
-                disabled={busyRiskId === item.risk.id || item.status === "closed"}
-                onClick={() => runRiskAction(
-                  item.risk.id,
-                  () => assignRiskOwner(item.risk.id, {
-                    period,
-                    owner: "财务主管",
-                    due_date: "2026-07-10",
-                    note: "先复核触发原因和建议检查资料。"
-                  })
-                )}
-              >
-                分派
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
-                disabled={busyRiskId === item.risk.id || item.status === "closed"}
-                onClick={() => runRiskAction(
-                  item.risk.id,
-                  () => addRiskProcessRecord(item.risk.id, {
-                    period,
-                    handler: item.owner ?? "财务主管",
-                    action: "已完成初步复核",
-                    note: "已核对触发原因，并形成后续处理建议。",
-                    next_status: "processing"
-                  })
-                )}
-              >
-                处理
-              </button>
-              <button
-                type="button"
-                disabled={busyRiskId === item.risk.id || item.status === "closed"}
-                onClick={() => runRiskAction(
-                  item.risk.id,
-                  () => addRiskReviewRecord(item.risk.id, {
-                    period,
-                    reviewer: "内控复核员",
-                    conclusion: "复核记录完整，准予关闭。",
-                    next_status: "closed"
-                  })
-                )}
-              >
-                复核关闭
-              </button>
-            </div>
-          </article>
-        ))}
-      </div>
+        <Table
+          className="risk-closure-table"
+          rowKey={(item) => item.risk.id}
+          columns={columns}
+          dataSource={items}
+          pagination={{ pageSize: 5, showSizeChanger: false }}
+          scroll={{ x: 980 }}
+          expandable={{
+            expandedRowRender: (item) => (
+              <div className="risk-closure-detail">
+                <Paragraph>{item.risk.description}</Paragraph>
+                <div>
+                  <strong>建议检查资料</strong>
+                  <ul>
+                    {item.risk.suggested_checks.map((checkItem) => (
+                      <li key={checkItem}>{checkItem}</li>
+                    ))}
+                  </ul>
+                </div>
+                <Paragraph>{item.risk.compliance_note}</Paragraph>
+              </div>
+            )
+          }}
+        />
+      </Card>
     </section>
   );
 }

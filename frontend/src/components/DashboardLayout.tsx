@@ -1,3 +1,18 @@
+import {
+  AppstoreOutlined,
+  BarChartOutlined,
+  BellOutlined,
+  FileDoneOutlined,
+  FileSearchOutlined,
+  HomeOutlined,
+  RobotOutlined,
+  SearchOutlined,
+  SettingOutlined,
+  SafetyCertificateOutlined,
+  UserOutlined
+} from "@ant-design/icons";
+import { Avatar, Badge, Button, Card, Drawer, Input, Layout, Menu, Space, Tag, Typography } from "antd";
+import type { MenuProps } from "antd";
 import CashFlowChart from "../charts/CashFlowChart";
 import ExpensePieChart from "../charts/ExpensePieChart";
 import ProfitWaterfallChart from "../charts/ProfitWaterfallChart";
@@ -9,30 +24,31 @@ import type { NavigationOsModule } from "../types/moduleRegistry";
 import AccountingArchivePanel from "./AccountingArchivePanel";
 import AccountingGovernancePanel from "./AccountingGovernancePanel";
 import AccrualAmortizationPanel from "./AccrualAmortizationPanel";
-import AuditReviewPanel from "./AuditReviewPanel";
+import AIFinanceAdvisor from "./AIFinanceAdvisor";
 import BankReconciliationPanel from "./BankReconciliationPanel";
 import ConsolidationPanel from "./ConsolidationPanel";
-import ECommerceProfitPanel from "./ECommerceProfitPanel";
-import FinanceQaPanel from "./FinanceQaPanel";
 import FinancialStatementPanel from "./FinancialStatementPanel";
 import FixedAssetPanel from "./FixedAssetPanel";
 import HomeDashboardPanel from "./HomeDashboardPanel";
 import InvoiceOcrPanel from "./InvoiceOcrPanel";
 import InventoryAccountingPanel from "./InventoryAccountingPanel";
 import LedgerPanel from "./LedgerPanel";
-import MetricCard from "./MetricCard";
 import PayrollPanel from "./PayrollPanel";
 import PeriodClosePanel from "./PeriodClosePanel";
-import PolicyLibraryPanel from "./PolicyLibraryPanel";
 import ReceivablePayablePanel from "./ReceivablePayablePanel";
 import ReportPanel from "./ReportPanel";
 import RiskPanel from "./RiskPanel";
+import SaasModuleWorkspace from "./SaasModuleWorkspace";
 import StatementArchivePanel from "./StatementArchivePanel";
 import StatementMappingPanel from "./StatementMappingPanel";
 import SystemAdminPanel from "./SystemAdminPanel";
 import TaxAccountingPanel from "./TaxAccountingPanel";
+import UpdateCenterPanel from "./UpdateCenterPanel";
 import VoucherCenterPanel from "./VoucherCenterPanel";
-import VoucherDraftPanel from "./VoucherDraftPanel";
+import { useState } from "react";
+
+const { Header, Sider, Content } = Layout;
+const { Text, Title } = Typography;
 
 interface DashboardLayoutProps {
   modules: NavigationOsModule[];
@@ -42,347 +58,249 @@ interface DashboardLayoutProps {
   onOpenDataEntry: () => void;
 }
 
-type ModuleById = Record<string, NavigationOsModule>;
+const navigationItems: MenuProps["items"] = [
+  { key: "ai-home", icon: <HomeOutlined />, label: <a href="#ai-home">首页 Dashboard</a> },
+  { key: "analysis-center", icon: <BarChartOutlined />, label: <a href="#analysis-center">智能财务分析</a> },
+  { key: "invoice-center", icon: <FileSearchOutlined />, label: <a href="#invoice-center">发票管理</a> },
+  { key: "tax-risk-center", icon: <SafetyCertificateOutlined />, label: <a href="#tax-risk-center">税务风险检测</a> },
+  { key: "statement-center", icon: <FileDoneOutlined />, label: <a href="#statement-center">财务报表</a> },
+  { key: "data-center", icon: <AppstoreOutlined />, label: <a href="#data-center">数据分析</a> },
+  { key: "ai-advisor", icon: <RobotOutlined />, label: <a href="#ai-advisor">AI 财务顾问</a> },
+  { key: "company-settings", icon: <SettingOutlined />, label: <a href="#company-settings">企业设置</a> }
+];
 
-export default function DashboardLayout({ modules, homeDashboard, overview, report, onOpenDataEntry }: DashboardLayoutProps) {
-  const moduleById = Object.fromEntries(modules.map((module) => [module.id, module])) as ModuleById;
+export default function DashboardLayout({ homeDashboard, overview, report, onOpenDataEntry }: DashboardLayoutProps) {
+  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
 
   return (
-    <div className="shell">
-      <aside className="sidebar os-sidebar">
-        <div className="brand">
-          <span>CF</span>
-          <strong>Finance AI OS</strong>
-        </div>
-        <nav className="module-nav" aria-label="China Finance AI OS 一级模块">
-          {modules.map((module, index) => (
-            <div className="module-nav-group" key={module.id}>
-              <a className={index === 0 ? "active" : ""} href={`#${module.id}`}>
-                <span>{module.label}</span>
-                <small className={module.status === "MVP" ? "status-pill" : "status-pill status-pill--planned"}>
-                  {module.status}
-                </small>
-              </a>
-              <div className="module-nav-links">
-                {module.items.slice(0, 3).map((item) => (
-                  <a href={`#${item.anchor}`} key={`${module.id}-${item.anchor}`}>
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
-      </aside>
-
-      <main className="workspace">
-        <header className="topbar">
+    <Layout className="saas-shell">
+      <Sider width={240} className="saas-sider">
+        <div className="saas-brand">
+          <span className="brand-mark" aria-hidden="true">
+            <span className="brand-mark__sheet" />
+            <span className="brand-mark__node" />
+          </span>
           <div>
-            <p className="eyebrow">China Finance AI OS</p>
-            <h1>{overview.company_name}智能财务操作系统</h1>
+            <strong>中国财务 AI 助手</strong>
+            <Text type="secondary">Enterprise Finance Copilot</Text>
           </div>
-          <div className="topbar-actions">
-            <span>{overview.period}</span>
-            <button type="button" className="button-secondary" onClick={onOpenDataEntry}>导入/填写数据</button>
-            <button type="button">生成报告</button>
-          </div>
-        </header>
+        </div>
+        <Menu mode="inline" defaultSelectedKeys={["ai-home"]} items={navigationItems} className="saas-menu" />
+      </Sider>
 
-        <ModuleMap modules={modules} />
-
-        <ModuleRoadmap module={moduleById["ai-home"]} />
-        <HomeDashboardPanel dashboard={homeDashboard} />
-
-        <section id="bi-center" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="BI数据中心"
-            title="经营驾驶舱"
-            status="MVP"
+      <Layout>
+        <Header className="saas-header">
+          <Input
+            className="global-search"
+            prefix={<SearchOutlined />}
+            placeholder="搜索发票、凭证、报表、风险"
+            allowClear
           />
-          <ModuleRoadmap module={moduleById["bi-center"]} />
-          <section id="overview" className="metric-grid">
-            {overview.metrics.map((metric) => (
-              <MetricCard key={metric.key} metric={metric} />
-            ))}
-          </section>
-          <section id="risk-heatmap" className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="eyebrow">风险分布</span>
-                <h2>风险热力图</h2>
-              </div>
+          <Space size={12} className="header-actions">
+            <Button type="text" icon={<Badge dot><BellOutlined /></Badge>}>消息提醒</Button>
+            <Button type="primary" icon={<RobotOutlined />} onClick={() => setIsAiDrawerOpen(true)}>AI助手</Button>
+            <Space className="user-chip">
+              <Avatar size={32} icon={<UserOutlined />} />
+              <span>财务经理</span>
+            </Space>
+          </Space>
+        </Header>
+
+        <Content className="saas-content">
+          <section className="page-hero">
+            <div>
+              <Text className="eyebrow">企业经营驾驶舱</Text>
+              <Title level={2}>{overview.company_name} 智能财务工作台</Title>
+              <Text type="secondary">以风险、现金流和利润质量为核心，减少财务人员查找路径。</Text>
             </div>
-            <RiskHeatmap data={overview.risk_heatmap} />
+            <Space wrap>
+              <Tag color="blue">{overview.period}</Tag>
+              <Button onClick={onOpenDataEntry}>导入/填写数据</Button>
+              <Button type="primary">生成报告</Button>
+            </Space>
           </section>
-        </section>
 
-        <section id="finance-center" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="AI财务中心"
-            title="凭证、审核与报表"
-            status="MVP"
+          <HomeDashboardPanel
+            dashboard={homeDashboard}
+            overview={overview}
+            report={report}
+            onOpenDataEntry={onOpenDataEntry}
+            onOpenAiAdvisor={() => setIsAiDrawerOpen(true)}
           />
-          <ModuleRoadmap module={moduleById["finance-center"]} />
-          <VoucherCenterPanel />
-          <AccountingArchivePanel period={overview.period} />
-          <AccountingGovernancePanel period={overview.period} />
-          <LedgerPanel period={overview.period} />
-          <ReceivablePayablePanel period={overview.period} />
-          <BankReconciliationPanel period={overview.period} />
-          <InventoryAccountingPanel period={overview.period} />
-          <TaxAccountingPanel period={overview.period} />
-          <AccrualAmortizationPanel period={overview.period} />
-          <ConsolidationPanel period={overview.period} />
-          <FixedAssetPanel period={overview.period} />
-          <PayrollPanel period={overview.period} />
-          <PeriodClosePanel period={overview.period} />
-          <StatementMappingPanel />
-          <FinancialStatementPanel period={overview.period} />
-          <StatementArchivePanel period={overview.period} />
-          <VoucherDraftPanel />
-          <AuditReviewPanel />
-          <div id="report">
+
+          <section id="analysis-center" className="saas-section">
+            <SectionHeading eyebrow="智能财务分析" title="收入、成本、利润与现金流趋势" />
+            <div className="saas-grid saas-grid--two">
+              <Card title="经营趋势">
+                <TrendChart series={overview.trend_series} />
+              </Card>
+              <Card title="成本结构">
+                <ExpensePieChart data={overview.expense_structure} />
+              </Card>
+              <Card title="现金流趋势">
+                <CashFlowChart series={overview.cash_flow_series} />
+              </Card>
+              <Card title="利润形成">
+                <ProfitWaterfallChart data={overview.profit_waterfall} />
+              </Card>
+            </div>
+          </section>
+
+          <SaasModuleWorkspace
+            id="invoice-center"
+            eyebrow="发票管理"
+            title="发票处理中心"
+            description="把票据导入、OCR 识别、异常复核和凭证入口放在同一个工作台，减少财务人员在菜单间来回跳转。"
+            summaryItems={[
+              { label: "待识别票据", value: "18", helper: "今日新增 6 张", status: "warning" },
+              { label: "识别准确率", value: "96.8%", helper: "供应商与税额字段优先校验" },
+              { label: "异常发票", value: "4", helper: "抬头、税率、重复票据待复核", status: "danger" },
+              { label: "凭证转化", value: "12", helper: "可直接生成凭证草稿" }
+            ]}
+            statusItems={[
+              { label: "OCR 队列", value: "自动识别中", tone: "processing" },
+              { label: "风险校验", value: "4 条预警", tone: "warning" },
+              { label: "凭证入口", value: "可生成", tone: "normal" }
+            ]}
+            primaryActions={[
+              { label: "导入发票", type: "primary", onClick: onOpenDataEntry },
+              { label: "查看异常", href: "#tax-risk-center" },
+              { label: "AI 解释", onClick: () => setIsAiDrawerOpen(true) }
+            ]}
+          >
+            <InvoiceOcrPanel />
+          </SaasModuleWorkspace>
+
+          <SaasModuleWorkspace
+            id="tax-risk-center"
+            eyebrow="税务风险检测"
+            title="税务风险驾驶舱"
+            description="把税负波动、票据异常、凭证口径和闭环处理放到同一视图，打开模块即可看到最该处理的事项。"
+            summaryItems={[
+              { label: "风险闭环", value: `${overview.risks.length}`, helper: "按风险等级自动排序", status: overview.risks.length ? "warning" : "normal" },
+              { label: "高风险事项", value: `${overview.risks.filter((risk) => risk.level >= 3).length}`, helper: "需复核政策依据", status: "danger" },
+              { label: "税负口径", value: "已校验", helper: "销项、进项、所得税联动" },
+              { label: "处理时效", value: "2 天", helper: "建议本周内完成复核", status: "warning" }
+            ]}
+            statusItems={[
+              { label: "热力图", value: "已生成", tone: "normal" },
+              { label: "政策依据", value: "待复核", tone: "warning" },
+              { label: "闭环任务", value: "处理中", tone: "processing" }
+            ]}
+            primaryActions={[
+              { label: "AI 分析风险", type: "primary", onClick: () => setIsAiDrawerOpen(true) },
+              { label: "查看发票", href: "#invoice-center" },
+              { label: "生成处理清单", href: "#data-center" }
+            ]}
+          >
+            <div className="saas-grid saas-grid--two">
+              <Card title="风险热力图">
+                <RiskHeatmap data={overview.risk_heatmap} />
+              </Card>
+              <Card title="风险提醒">
+                <RiskPanel risks={overview.risks} period={overview.period} />
+              </Card>
+            </div>
+            <TaxAccountingPanel period={overview.period} />
+          </SaasModuleWorkspace>
+
+          <SaasModuleWorkspace
+            id="statement-center"
+            eyebrow="财务报表"
+            title="报表交付中心"
+            description="围绕报表口径、映射规则、合并抵销、归档锁定和经营分析报告组织交付流程，适合月结和管理层汇报。"
+            summaryItems={[
+              { label: "报表口径", value: "4 套", helper: "资产负债表、利润表、现金流等" },
+              { label: "映射规则", value: "已追溯", helper: "科目到报表项目可校验" },
+              { label: "归档快照", value: "待锁定", helper: "月结后生成不可改快照", status: "warning" },
+              { label: "报告章节", value: `${report.sections.length}`, helper: "经营分析报告已生成" }
+            ]}
+            statusItems={[
+              { label: "报表生成", value: "可刷新", tone: "normal" },
+              { label: "合并抵销", value: "待重建", tone: "warning" },
+              { label: "归档锁定", value: "月结后执行", tone: "processing" }
+            ]}
+            primaryActions={[
+              { label: "生成报表", type: "primary", href: "#statement-center" },
+              { label: "导出报告", href: "#statement-center" },
+              { label: "AI 审阅", onClick: () => setIsAiDrawerOpen(true) }
+            ]}
+          >
+            <StatementMappingPanel />
+            <FinancialStatementPanel period={overview.period} />
+            <ConsolidationPanel period={overview.period} />
+            <StatementArchivePanel period={overview.period} />
             <ReportPanel report={report} />
-          </div>
-        </section>
+          </SaasModuleWorkspace>
 
-        <section id="analysis-center" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="AI经营分析中心"
-            title="趋势、结构与经营判断"
-            status="MVP"
-          />
-          <ModuleRoadmap module={moduleById["analysis-center"]} />
-          <section className="content-grid">
-            <section id="profit" className="panel panel--wide">
-              <div className="panel-header">
-                <div>
-                  <span className="eyebrow">趋势分析</span>
-                  <h2>收入、成本、净利润趋势</h2>
-                </div>
-              </div>
-              <TrendChart series={overview.trend_series} />
-            </section>
+          <SaasModuleWorkspace
+            id="data-center"
+            eyebrow="数据分析"
+            title="数据运营中心"
+            description="把凭证、账簿、往来、银行、存货、资产、薪酬、月结和会计档案集中到一个运营视图，方便长期高频使用。"
+            summaryItems={[
+              { label: "数据质量", value: "92%", helper: "凭证、账簿、银行流水综合评分" },
+              { label: "待处理任务", value: "11", helper: "对账、月结、归档事项", status: "warning" },
+              { label: "自动化覆盖", value: "8 类", helper: "存货、资产、薪酬、税务等" },
+              { label: "审计追踪", value: "开启", helper: "关键动作保留留痕" }
+            ]}
+            statusItems={[
+              { label: "凭证中心", value: "可过账", tone: "processing" },
+              { label: "银行对账", value: "待匹配", tone: "warning" },
+              { label: "会计档案", value: "可归档", tone: "normal" }
+            ]}
+            primaryActions={[
+              { label: "导入数据", type: "primary", onClick: onOpenDataEntry },
+              { label: "执行月结", href: "#data-center" },
+              { label: "AI 生成清单", onClick: () => setIsAiDrawerOpen(true) }
+            ]}
+          >
+            <VoucherCenterPanel />
+            <LedgerPanel period={overview.period} />
+            <ReceivablePayablePanel period={overview.period} />
+            <BankReconciliationPanel period={overview.period} />
+            <InventoryAccountingPanel period={overview.period} />
+            <AccrualAmortizationPanel period={overview.period} />
+            <FixedAssetPanel period={overview.period} />
+            <PayrollPanel period={overview.period} />
+            <PeriodClosePanel period={overview.period} />
+            <AccountingArchivePanel period={overview.period} />
+            <AccountingGovernancePanel period={overview.period} />
+          </SaasModuleWorkspace>
 
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="eyebrow">费用分析</span>
-                  <h2>费用结构</h2>
-                </div>
-              </div>
-              <ExpensePieChart data={overview.expense_structure} />
-            </section>
-
-            <section id="cashflow" className="panel panel--wide">
-              <div className="panel-header">
-                <div>
-                  <span className="eyebrow">资金分析</span>
-                  <h2>现金流趋势</h2>
-                </div>
-              </div>
-              <CashFlowChart series={overview.cash_flow_series} />
-            </section>
-
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="eyebrow">利润形成</span>
-                  <h2>利润瀑布</h2>
-                </div>
-              </div>
-              <ProfitWaterfallChart data={overview.profit_waterfall} />
-            </section>
-
-            <section id="ai-summary" className="panel ai-summary">
-              <div className="panel-header">
-                <div>
-                  <span className="eyebrow">AI摘要</span>
-                  <h2>经营判断</h2>
-                </div>
-              </div>
-              <p>{overview.ai_summary}</p>
-            </section>
+          <section id="ai-advisor" className="saas-section">
+            <SectionHeading eyebrow="AI 财务顾问" title="带政策依据和执行方案的财务问答" />
+            <AIFinanceAdvisor />
           </section>
-        </section>
 
-        <section id="ecommerce-center" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="电商分析中心"
-            title="平台利润与成本拆解"
-            status="MVP"
-          />
-          <ModuleRoadmap module={moduleById["ecommerce-center"]} />
-          <ECommerceProfitPanel />
-        </section>
+          <section id="company-settings" className="saas-section">
+            <SectionHeading eyebrow="企业设置" title="权限、角色、审计与系统治理" />
+            <UpdateCenterPanel />
+            <SystemAdminPanel />
+          </section>
+        </Content>
+      </Layout>
 
-        <section id="ocr-center" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="OCR识别中心"
-            title="票据识别与凭证入口"
-            status="MVP"
-          />
-          <ModuleRoadmap module={moduleById["ocr-center"]} />
-          <InvoiceOcrPanel />
-        </section>
-
-        <section id="knowledge-base" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="企业知识库"
-            title="政策、制度与来源追踪"
-            status="MVP"
-          />
-          <ModuleRoadmap module={moduleById["knowledge-base"]} />
-          <PolicyLibraryPanel />
-        </section>
-
-        <section id="tax-center" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="AI税务中心"
-            title="政策依据与税务风险"
-            status="MVP"
-          />
-          <ModuleRoadmap module={moduleById["tax-center"]} />
-          <div className="module-two-column">
-            <ModuleInfoPanel
-              title="政策依据"
-              body="税率、优惠、减免和风险提示统一引用企业知识库中的政策来源。"
-              actionHref="#policy-library"
-              actionLabel="查看法规库"
-            />
-            <ModuleInfoPanel
-              title="税务风险"
-              body="税负率、发票异常和凭证税额方向进入风险预警中心闭环跟踪。"
-              actionHref="#risk"
-              actionLabel="查看风险"
-            />
-          </div>
-        </section>
-
-        <section id="ai-assistant" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="AI智能助手"
-            title="财务问答与工具调用"
-            status="MVP"
-          />
-          <ModuleRoadmap module={moduleById["ai-assistant"]} />
-          <FinanceQaPanel />
-        </section>
-
-        <section id="risk-center" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="风险预警中心"
-            title="风险发现与闭环跟踪"
-            status="MVP"
-          />
-          <ModuleRoadmap module={moduleById["risk-center"]} />
-          <div id="risk">
-            <RiskPanel risks={overview.risks} period={overview.period} />
-          </div>
-        </section>
-
-        <section id="system-admin" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="系统管理"
-            title="权限、账套与审计"
-            status="规划"
-          />
-          <ModuleRoadmap module={moduleById["system-admin"]} />
-          <SystemAdminPanel />
-        </section>
-
-        <section id="open-platform" className="module-band">
-          <ModuleSectionHeader
-            eyebrow="开放平台"
-            title="API、Webhook 与集成"
-            status="规划"
-          />
-          <ModuleRoadmap module={moduleById["open-platform"]} />
-          <ModuleInfoPanel
-            title="开放接口"
-            body="后续承载 REST API、Webhook、OAuth2、OpenAPI、SDK、限流和版本管理。"
-          />
-        </section>
-      </main>
-    </div>
+      <Drawer
+        title="AI 财务助手"
+        size={520}
+        open={isAiDrawerOpen}
+        onClose={() => setIsAiDrawerOpen(false)}
+        destroyOnClose
+      >
+        <AIFinanceAdvisor compact />
+      </Drawer>
+    </Layout>
   );
 }
 
-function ModuleMap({ modules }: { modules: NavigationOsModule[] }) {
+function SectionHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
-    <section className="module-map" aria-label="China Finance AI OS 十二个一级模块">
-      {modules.map((module) => (
-        <a className="module-card" href={`#${module.id}`} key={module.id}>
-          <div>
-            <span className="eyebrow">{module.status}</span>
-            <strong>{module.label}</strong>
-          </div>
-          <small>{module.apiPrefixes?.[0] ?? `${module.items.length} 个入口`}</small>
-        </a>
-      ))}
-    </section>
-  );
-}
-
-function ModuleSectionHeader({
-  eyebrow,
-  title,
-  status
-}: {
-  eyebrow: string;
-  title: string;
-  status: NavigationOsModule["status"];
-}) {
-  return (
-    <div className="module-section-header">
+    <div className="saas-section-heading">
       <div>
-        <span className="eyebrow">{eyebrow}</span>
-        <h2>{title}</h2>
+        <Text className="eyebrow">{eyebrow}</Text>
+        <Title level={3}>{title}</Title>
       </div>
-      <span className={status === "MVP" ? "status-pill" : "status-pill status-pill--planned"}>{status}</span>
     </div>
-  );
-}
-
-function ModuleRoadmap({ module }: { module: NavigationOsModule }) {
-  return (
-    <section className="module-roadmap" aria-label={`${module.label} FRD 规划接入点`}>
-      <div>
-        <span className="eyebrow">下一步接入点</span>
-        <p>{module.nextIntegration}</p>
-      </div>
-      <div className="roadmap-tags">
-        {module.roadmap.slice(0, 9).map((item) => (
-          <span key={`${module.id}-${item}`}>{item}</span>
-        ))}
-      </div>
-      {module.apiPrefixes ? (
-        <div className="module-governance" aria-label={`${module.label} API 治理信息`}>
-          <span>API {module.apiPrefixes.join(" / ")}</span>
-          <span>{module.requiresPermission ? "权限控制" : "开放访问"}</span>
-          <span>限流 {module.rateLimitPolicy}</span>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function ModuleInfoPanel({
-  title,
-  body,
-  actionHref,
-  actionLabel
-}: {
-  title: string;
-  body: string;
-  actionHref?: string;
-  actionLabel?: string;
-}) {
-  return (
-    <section className="module-info-panel">
-      <h3>{title}</h3>
-      <p>{body}</p>
-      {actionHref && actionLabel ? <a href={actionHref}>{actionLabel}</a> : null}
-    </section>
   );
 }

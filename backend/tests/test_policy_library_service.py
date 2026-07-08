@@ -22,3 +22,13 @@ def test_search_policy_documents_returns_invoice_policy_for_invoice_risk():
     titles = {result.document.title for result in response.results}
     assert "中华人民共和国发票管理办法" in titles
     assert response.latest_policy_check_required is True
+
+
+def test_search_policy_documents_extracts_registered_keywords_from_chinese_sentence():
+    response = search_policy_documents(
+        PolicySearchRequest(query="我们公司这个月能不能享受最新地方税收优惠？", limit=5)
+    )
+
+    titles = {result.document.title for result in response.results}
+    assert "中华人民共和国企业所得税法" in titles
+    assert response.latest_policy_check_required is True

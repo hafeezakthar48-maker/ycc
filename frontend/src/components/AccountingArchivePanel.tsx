@@ -1,14 +1,56 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Row,
+  Space,
+  Statistic,
+  Table,
+  Tabs,
+  Tag,
+  Typography
+} from "antd";
+import type { TableColumnsType } from "antd";
+import {
+  CloudDownloadOutlined,
+  FileDoneOutlined,
+  FileSearchOutlined,
+  FolderAddOutlined,
+  ReloadOutlined,
+  SafetyCertificateOutlined
+} from "@ant-design/icons";
+import { type Key, useCallback, useEffect, useMemo, useState } from "react";
 import {
   createAccountingArchiveCase,
   downloadAccountingArchivePackage,
   fetchAccountingArchiveDocuments
 } from "../services/dashboardApi";
-import type { ArchiveDocument, ArchiveOcrStatus, ArchiveVerificationStatus } from "../types/accountingArchive";
+import type {
+  ArchiveDocument,
+  ArchiveOcrStatus,
+  ArchiveStatus,
+  ArchiveStorageStatus,
+  ArchiveVerificationStatus
+} from "../types/accountingArchive";
+
+const { Paragraph, Text, Title } = Typography;
 
 interface AccountingArchivePanelProps {
   period: string;
 }
+
+const archiveStatusLabels: Record<ArchiveStatus, string> = {
+  draft: "草稿",
+  indexed: "已索引",
+  archived: "已归档",
+  locked: "已锁定"
+};
+
+const storageStatusLabels: Record<ArchiveStorageStatus, string> = {
+  metadata_only: "仅元数据",
+  stored: "已存储"
+};
 
 const ocrStatusLabels: Record<ArchiveOcrStatus, string> = {
   not_required: "无需识别",
@@ -24,7 +66,28 @@ const verificationStatusLabels: Record<ArchiveVerificationStatus, string> = {
   failed: "验真失败"
 };
 
-function shortHash(value: string) {
+const ocrStatusColors: Record<ArchiveOcrStatus, string> = {
+  not_required: "default",
+  text_parsed: "green",
+  engine_required: "orange",
+  failed: "red"
+};
+
+const verificationStatusColors: Record<ArchiveVerificationStatus, string> = {
+  not_required: "default",
+  pending_external: "orange",
+  verified: "green",
+  failed: "red"
+};
+
+const archiveStatusColors: Record<ArchiveStatus, string> = {
+  draft: "orange",
+  indexed: "blue",
+  archived: "green",
+  locked: "purple"
+};
+
+function shortHash(value: string | null | undefined) {
   return value ? value.slice(0, 12) : "-";
 }
 
@@ -38,7 +101,7 @@ function formatBytes(value: number) {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function formatTime(value: string) {
+function formatTime(value: string | null | undefined) {
   return value ? value.replace("T", " ").replace("Z", "") : "-";
 }
 
@@ -83,26 +146,23 @@ export default function AccountingArchivePanel({ period }: AccountingArchivePane
     refreshDocuments();
   }, [refreshDocuments]);
 
-  const summary = useMemo(() => ({
-    total: documents.length,
-    selected: selectedIds.length,
-    pendingVerification: documents.filter((document) => document.verification_status === "pending_external").length,
-    engineRequired: documents.filter((document) => document.ocr_status === "engine_required").length
-  }), [documents, selectedIds.length]);
-
-  function toggleDocument(documentId: string) {
-    setSelectedIds((current) =>
-      current.includes(documentId)
-        ? current.filter((item) => item !== documentId)
-        : [...current, documentId]
-    );
-  }
-
-  function toggleAllDocuments() {
-    setSelectedIds((current) =>
-      current.length === documents.length ? [] : documents.map((document) => document.archive_document_id)
-    );
-  }
+  const summary = useMemo(() => {
+    const pendingVerification = documents.filter((document) => document.verification_status === "pending_external").length;
+    const engineRequired = documents.filter((document) => document.ocr_status === "engine_required").length;
+    const storedCount = documents.filter((document) => document.storage_status === "stored").length;
+    const totalSize = documents.reduce((total, document) => total + document.size, 0);
+    const latest = documents[0] ?? null;
+    return {
+      total: documents.length,
+      selected: selectedIds.length,
+      pendingVerification,
+      engineRequired,
+      storedCount,
+      totalSize,
+      latestHash: shortHash(latest?.sha256_hash),
+      latestCreator: latest?.uploaded_by ?? "-"
+    };
+  }, [documents, selectedIds.length]);
 
   async function handleCreateCase() {
     if (selectedIds.length === 0) {
@@ -147,114 +207,213 @@ export default function AccountingArchivePanel({ period }: AccountingArchivePane
     }
   }
 
+  const columns: TableColumnsType<ArchiveDocument> = [
+    {
+      title: "文件",
+      dataIndex: "filename",
+      key: "filename",
+      width: 260,
+      fixed: "left",
+      sorter: (a, b) => a.filename.localeCompare(b.filename),
+      render: (value: string, document) => (
+        <Space orientation="vertical" size={0}>
+          <Text strong>{value}</Text>
+          <Text type="secondary">{document.document_type} · {formatBytes(document.size)}</Text>
+        </Space>
+      )
+    },
+    {
+      title: "来源",
+      key: "source",
+      width: 150,
+      render: (_, document) => sourceLabel(document)
+    },
+    {
+      title: "OCR 状态",
+      dataIndex: "ocr_status",
+      key: "ocr_status",
+      width: 140,
+      filters: Object.entries(ocrStatusLabels).map(([value, text]) => ({ value, text })),
+      onFilter: (value, document) => document.ocr_status === value,
+      render: (value: ArchiveOcrStatus) => <Tag color={ocrStatusColors[value]}>{ocrStatusLabels[value]}</Tag>
+    },
+    {
+      title: "验真状态",
+      dataIndex: "verification_status",
+      key: "verification_status",
+      width: 140,
+      filters: Object.entries(verificationStatusLabels).map(([value, text]) => ({ value, text })),
+      onFilter: (value, document) => document.verification_status === value,
+      render: (value: ArchiveVerificationStatus) => (
+        <Tag color={verificationStatusColors[value]}>{verificationStatusLabels[value]}</Tag>
+      )
+    },
+    {
+      title: "归档状态",
+      dataIndex: "archive_status",
+      key: "archive_status",
+      width: 130,
+      render: (value: ArchiveStatus) => <Tag color={archiveStatusColors[value]}>{archiveStatusLabels[value]}</Tag>
+    },
+    {
+      title: "存储",
+      dataIndex: "storage_status",
+      key: "storage_status",
+      width: 120,
+      render: (value: ArchiveStorageStatus) => storageStatusLabels[value]
+    },
+    {
+      title: "保管期限",
+      dataIndex: "retention_years",
+      key: "retention_years",
+      align: "right",
+      width: 110,
+      render: (value: number) => `${value} 年`
+    },
+    {
+      title: "哈希校验",
+      dataIndex: "sha256_hash",
+      key: "sha256_hash",
+      width: 150,
+      render: (value: string) => <Text code>{shortHash(value)}</Text>
+    },
+    {
+      title: "创建时间",
+      dataIndex: "created_at",
+      key: "created_at",
+      width: 190,
+      render: (value: string) => formatTime(value)
+    }
+  ];
+
+  const rowSelection = {
+    selectedRowKeys: selectedIds,
+    onChange: (nextSelectedRowKeys: Key[]) => {
+      setSelectedIds(nextSelectedRowKeys.map(String));
+    }
+  };
+
   return (
-    <section id="accounting-archive-panel" className="accounting-archive-panel">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">会计档案</span>
-          <h2>电子凭证与档案案卷</h2>
+    <section id="accounting-archive-panel" className="accounting-archive-panel accounting-archive-workbench">
+      <Card className="accounting-archive-hero">
+        <div className="accounting-archive-toolbar">
+          <div>
+            <Text className="eyebrow">会计档案</Text>
+            <Title level={3}>电子凭证与档案案卷工作台</Title>
+            <Paragraph type="secondary">
+              将电子凭证、OCR 状态、验真状态、哈希校验、保管期限和归档包下载集中到案卷编制界面。
+            </Paragraph>
+          </div>
+          <Space wrap>
+            <Tag color="blue">{period}</Tag>
+            <Button icon={<ReloadOutlined />} loading={isLoading} onClick={refreshDocuments}>
+              刷新
+            </Button>
+            <Button
+              type="primary"
+              icon={<FolderAddOutlined />}
+              loading={activeAction === "create"}
+              disabled={selectedIds.length === 0}
+              onClick={handleCreateCase}
+            >
+              创建案卷
+            </Button>
+            <Button
+              icon={<CloudDownloadOutlined />}
+              loading={activeAction === "download"}
+              disabled={!lastCaseId}
+              onClick={handleDownloadPackage}
+            >
+              下载归档包
+            </Button>
+          </Space>
         </div>
-        <div className="statement-archive-actions accounting-archive-actions">
-          <span>{period}</span>
-          <button type="button" onClick={handleCreateCase} disabled={activeAction === "create" || selectedIds.length === 0}>
-            {activeAction === "create" ? "建案中..." : "创建案卷"}
-          </button>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={handleDownloadPackage}
-            disabled={!lastCaseId || activeAction === "download"}
-          >
-            {activeAction === "download" ? "下载中..." : "下载归档包"}
-          </button>
-          <button type="button" className="button-secondary" onClick={refreshDocuments} disabled={isLoading}>
-            刷新
-          </button>
-        </div>
-      </div>
+      </Card>
 
-      {error ? <p className="inline-error">{error}</p> : null}
-      {message ? <p className="statement-archive-message">{message}</p> : null}
+      {error ? <Alert type="warning" showIcon message={error} /> : null}
+      {message ? <Alert type="success" showIcon message={message} /> : null}
 
-      <div className="statement-archive-summary-grid accounting-archive-summary-grid">
-        <article>
-          <span>文档数</span>
-          <strong>{summary.total}</strong>
-        </article>
-        <article>
-          <span>已选择</span>
-          <strong>{summary.selected}</strong>
-        </article>
-        <article>
-          <span>待验真</span>
-          <strong>{summary.pendingVerification}</strong>
-        </article>
-        <article>
-          <span>待 OCR</span>
-          <strong>{summary.engineRequired}</strong>
-        </article>
-      </div>
+      <Row gutter={[16, 16]} className="accounting-archive-summary-grid">
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="accounting-archive-metric">
+            <Statistic title="档案文档" value={summary.total} suffix="份" prefix={<FileDoneOutlined />} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="accounting-archive-metric">
+            <Statistic title="案卷编制" value={summary.selected} suffix="已选" prefix={<FolderAddOutlined />} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="accounting-archive-metric">
+            <Statistic title="待验真" value={summary.pendingVerification} prefix={<SafetyCertificateOutlined />} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="accounting-archive-metric">
+            <Statistic title="待 OCR" value={summary.engineRequired} prefix={<FileSearchOutlined />} />
+          </Card>
+        </Col>
+      </Row>
 
-      <div className="voucher-table-wrap">
-        <table className="voucher-table accounting-archive-table">
-          <thead>
-            <tr>
-              <th>
-                <input
-                  type="checkbox"
-                  checked={documents.length > 0 && selectedIds.length === documents.length}
-                  onChange={toggleAllDocuments}
-                  aria-label="选择全部档案文档"
-                />
-              </th>
-              <th>文件</th>
-              <th>来源</th>
-              <th>OCR</th>
-              <th>验真</th>
-              <th>存储</th>
-              <th>保管</th>
-              <th>哈希</th>
-              <th>创建时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            {documents.length ? documents.map((document) => (
-              <tr key={document.archive_document_id}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(document.archive_document_id)}
-                    onChange={() => toggleDocument(document.archive_document_id)}
-                    aria-label={`选择 ${document.filename}`}
-                  />
-                </td>
-                <td>
-                  <strong>{document.filename}</strong>
-                  <small>{document.document_type} · {formatBytes(document.size)}</small>
-                </td>
-                <td>{sourceLabel(document)}</td>
-                <td>
-                  <span className={`statement-archive-status statement-archive-status--${document.ocr_status}`}>
-                    {ocrStatusLabels[document.ocr_status]}
-                  </span>
-                </td>
-                <td>
-                  <span className={`statement-archive-status statement-archive-status--${document.verification_status}`}>
-                    {verificationStatusLabels[document.verification_status]}
-                  </span>
-                </td>
-                <td>{document.storage_status}</td>
-                <td>{document.retention_years} 年</td>
-                <td>{shortHash(document.sha256_hash)}</td>
-                <td>{formatTime(document.created_at)}</td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={9}>{isLoading ? "正在读取会计档案" : "当前期间暂无会计档案文档"}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="accounting-archive-layout">
+        <Card className="accounting-archive-card accounting-archive-main" title="档案台账">
+          <Table
+            className="accounting-archive-ledger-table"
+            rowKey="archive_document_id"
+            rowSelection={rowSelection}
+            columns={columns}
+            dataSource={documents}
+            loading={isLoading}
+            pagination={{ pageSize: 8, showSizeChanger: false }}
+            scroll={{ x: 1390 }}
+            locale={{ emptyText: isLoading ? "正在读取会计档案" : "当前期间暂无会计档案文档" }}
+          />
+        </Card>
+
+        <Card className="accounting-archive-card" title="案卷编制">
+          <div className="accounting-archive-case-list">
+            <article>
+              <strong>已选择文档</strong>
+              <Tag color={summary.selected ? "blue" : "default"}>{summary.selected} 份</Tag>
+            </article>
+            <article>
+              <strong>归档包下载</strong>
+              <Tag color={lastCaseId ? "green" : "orange"}>{lastCaseId ? "可下载" : "待建案"}</Tag>
+            </article>
+            <article>
+              <strong>存储状态</strong>
+              <Tag color={summary.storedCount === summary.total && summary.total ? "green" : "orange"}>
+                {summary.storedCount}/{summary.total}
+              </Tag>
+            </article>
+          </div>
+        </Card>
+
+        <Card className="accounting-archive-card" title="哈希校验">
+          <div className="accounting-archive-audit-list">
+            <p><span>最新哈希</span><Text code>{summary.latestHash}</Text></p>
+            <p><span>上传人</span><strong>{summary.latestCreator}</strong></p>
+            <p><span>总容量</span><strong>{formatBytes(summary.totalSize)}</strong></p>
+          </div>
+        </Card>
+
+        <Card className="accounting-archive-card accounting-archive-help-card" title="保管期限">
+          <Tabs
+            items={[
+              {
+                key: "voucher",
+                label: "电子凭证",
+                children: <Paragraph type="secondary">凭证附件、OCR 文本和验真结果进入同一案卷，便于审计追溯。</Paragraph>
+              },
+              {
+                key: "package",
+                label: "归档包下载",
+                children: <Paragraph type="secondary">创建案卷后可下载归档包，包内保留文档清单、哈希摘要和保管期限。</Paragraph>
+              }
+            ]}
+          />
+        </Card>
       </div>
     </section>
   );

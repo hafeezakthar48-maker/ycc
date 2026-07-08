@@ -1,10 +1,37 @@
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Progress,
+  Row,
+  Space,
+  Statistic,
+  Table,
+  Tabs,
+  Tag,
+  Typography
+} from "antd";
+import type { TableColumnsType } from "antd";
+import {
+  CheckCircleOutlined,
+  CloudDownloadOutlined,
+  FileProtectOutlined,
+  LockOutlined,
+  ReloadOutlined,
+  SafetyCertificateOutlined
+} from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
 import { generateFinancialStatements } from "../services/dashboardApi";
 import type {
   FinancialStatementBundle,
   MoneyValue,
-  StatementLineItem
+  StatementLineItem,
+  StatementLineTrace,
+  StatementValidationItem
 } from "../types/financialStatement";
+
+const { Paragraph, Text, Title } = Typography;
 
 interface FinancialStatementPanelProps {
   period: string;
@@ -33,6 +60,13 @@ function validationLabel(status: string) {
     return "通过";
   }
   return status === "failed" ? "未通过" : "提示";
+}
+
+function validationColor(status: string) {
+  if (status === "passed") {
+    return "green";
+  }
+  return status === "failed" ? "red" : "orange";
 }
 
 export default function FinancialStatementPanel({ period }: FinancialStatementPanelProps) {
@@ -96,10 +130,79 @@ export default function FinancialStatementPanel({ period }: FinancialStatementPa
     ];
   }, [bundle, period]);
 
+  const validationItems = bundle?.validation_items ?? [];
+  const traceItems = bundle?.trace_items ?? [];
+  const passedValidationCount = validationItems.filter((item) => item.status === "passed").length;
+  const validationProgress = validationItems.length
+    ? Math.round(passedValidationCount / validationItems.length * 100)
+    : 0;
+
+  const traceColumns: TableColumnsType<StatementLineTrace> = [
+    {
+      title: "报表项目",
+      dataIndex: "line_code",
+      key: "line_code",
+      width: 120,
+      render: (value) => <Tag color="blue">{value}</Tag>
+    },
+    {
+      title: "取数规则",
+      dataIndex: "formula",
+      key: "formula",
+      width: 220,
+      ellipsis: true
+    },
+    {
+      title: "数据来源",
+      dataIndex: "source_type",
+      key: "source_type",
+      width: 140,
+      render: (value) => sourceLabel(value)
+    },
+    {
+      title: "来源科目/现金流项目",
+      key: "source",
+      width: 260,
+      render: (_, item) => (
+        item.source_account_codes.join(" / ") || item.cash_flow_item_codes.join(" / ") || "公式或样例数据"
+      )
+    },
+    {
+      title: "金额",
+      dataIndex: "amount",
+      key: "amount",
+      align: "right",
+      width: 140,
+      render: (value) => money(value)
+    }
+  ];
+
+  const validationColumns: TableColumnsType<StatementValidationItem> = [
+    {
+      title: "状态",
+      dataIndex: "status",
+      key: "status",
+      width: 110,
+      render: (value) => <Tag color={validationColor(value)}>{validationLabel(value)}</Tag>
+    },
+    {
+      title: "校验项",
+      dataIndex: "validation_name",
+      key: "validation_name",
+      width: 180
+    },
+    {
+      title: "结果说明",
+      dataIndex: "message",
+      key: "message",
+      ellipsis: true
+    }
+  ];
+
   function loadStatements() {
     setIsLoading(true);
     setError(null);
-    generateFinancialStatements({ period, account_set_id: "default", operator: "财务主管" })
+    generateFinancialStatements({ period, account_set_id: "default", operator: "财务主管", include_trace: true })
       .then(setBundle)
       .catch((statementError) => {
         setError(statementError instanceof Error ? statementError.message : "财务报表生成失败");
@@ -114,7 +217,7 @@ export default function FinancialStatementPanel({ period }: FinancialStatementPa
     setIsLoading(true);
     setError(null);
 
-    generateFinancialStatements({ period, account_set_id: "default", operator: "财务主管" })
+    generateFinancialStatements({ period, account_set_id: "default", operator: "财务主管", include_trace: true })
       .then((payload) => {
         if (!cancelled) {
           setBundle(payload);
@@ -137,73 +240,118 @@ export default function FinancialStatementPanel({ period }: FinancialStatementPa
   }, [period]);
 
   return (
-    <section id="financial-statements-panel" className="financial-statements-panel">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">财务报表</span>
-          <h2>标准报表自动生成</h2>
-        </div>
-        <div className="statement-actions">
-          <span>{period}</span>
-          <button type="button" className="button-secondary" onClick={loadStatements} disabled={isLoading}>
-            {isLoading ? "生成中..." : "重新生成"}
-          </button>
-        </div>
-      </div>
-
-      {error ? <p className="inline-error">{error}</p> : null}
-
-      <div className="financial-statement-summary-grid">
-        <article>
-          <span>报表来源</span>
-          <strong>{bundle ? sourceLabel(bundle.source) : "读取中"}</strong>
-        </article>
-        <article>
-          <span>平衡校验</span>
-          <strong>{bundle?.summary.asset_liability_balanced ? "已平衡" : "待复核"}</strong>
-        </article>
-        <article>
-          <span>已审核凭证</span>
-          <strong>{bundle?.summary.reviewed_voucher_count ?? 0}</strong>
-        </article>
-        <article>
-          <span>生成报表</span>
-          <strong>{bundle?.summary.generated_statement_count ?? 0}</strong>
-        </article>
-        <article>
-          <span>本位币</span>
-          <strong>{bundle?.summary.base_currency ?? "CNY"}</strong>
-        </article>
-        <article>
-          <span>外币分录</span>
-          <strong>{bundle?.summary.foreign_currency_line_count ?? 0}</strong>
-        </article>
-        <article>
-          <span>映射集</span>
-          <strong>{bundle?.mapping_set_id ?? "读取中"}</strong>
-        </article>
-      </div>
-
-      <div className="financial-statement-grid">
-        {statementTables.map((statement) => (
-          <StatementTable
-            key={statement.title}
-            title={statement.title}
-            period={statement.period}
-            items={statement.items}
-            totals={statement.totals}
-          />
-        ))}
-        <section className="panel statement-management-panel">
-          <div className="panel-header">
-            <div>
-              <span className="eyebrow">管理报表</span>
-              <h3>{bundle?.management_summary.title ?? "管理报表摘要"}</h3>
-            </div>
+    <section id="financial-statements-panel" className="financial-statements-panel statement-delivery-workbench">
+      <Card className="statement-delivery-hero">
+        <div className="statement-delivery-toolbar">
+          <div>
+            <Text className="eyebrow">财务报表</Text>
+            <Title level={3}>报表交付工作台</Title>
+            <Paragraph type="secondary">
+              将四表生成、平衡校验、取数追溯、管理层摘要和归档动作集中在一个月结交付界面。
+            </Paragraph>
           </div>
+          <Space wrap>
+            <Tag color="blue">{period}</Tag>
+            <Button icon={<ReloadOutlined />} loading={isLoading} onClick={loadStatements}>
+              重新生成
+            </Button>
+            <Button icon={<CloudDownloadOutlined />} href="#statement-archive-panel">
+              导出报表包
+            </Button>
+            <Button type="primary" icon={<LockOutlined />} href="#statement-archive-panel">
+              归档锁定
+            </Button>
+          </Space>
+        </div>
+      </Card>
+
+      {error ? <Alert type="warning" showIcon message={error} /> : null}
+
+      <Row gutter={[16, 16]} className="financial-statement-summary-grid">
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="statement-delivery-metric">
+            <Statistic title="报表来源" value={bundle ? sourceLabel(bundle.source) : "读取中"} prefix={<FileProtectOutlined />} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="statement-delivery-metric">
+            <Statistic title="平衡校验" value={bundle?.summary.asset_liability_balanced ? "已平衡" : "待复核"} prefix={<SafetyCertificateOutlined />} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="statement-delivery-metric">
+            <Statistic title="已审核凭证" value={bundle?.summary.reviewed_voucher_count ?? 0} suffix="张" />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="statement-delivery-metric">
+            <Statistic title="生成报表" value={bundle?.summary.generated_statement_count ?? 0} suffix="张" />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="statement-delivery-metric">
+            <Statistic title="本位币" value={bundle?.summary.base_currency ?? "CNY"} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="statement-delivery-metric">
+            <Statistic title="外币分录" value={bundle?.summary.foreign_currency_line_count ?? 0} suffix="条" />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="statement-delivery-metric">
+            <Statistic title="映射集" value={bundle?.mapping_set_id ?? "读取中"} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="statement-delivery-metric">
+            <Statistic title="校验通过率" value={validationProgress} suffix="%" prefix={<CheckCircleOutlined />} />
+          </Card>
+        </Col>
+      </Row>
+
+      <div className="statement-delivery-layout">
+        <Card className="statement-delivery-card statement-preview-card" title="四表预览">
+          <Tabs
+            className="statement-preview-tabs"
+            items={statementTables.map((statement) => ({
+              key: statement.title,
+              label: statement.title,
+              children: <StatementTable {...statement} />
+            }))}
+          />
+        </Card>
+
+        <Card className="statement-delivery-card" title="生成队列">
+          <div className="statement-flow-list">
+            <p><Tag color="green">已完成</Tag> 取数口径映射</p>
+            <p><Tag color={bundle?.summary.asset_liability_balanced ? "green" : "orange"}>校验</Tag> 资产负债平衡复核</p>
+            <p><Tag color={traceItems.length ? "blue" : "default"}>追溯</Tag> 生成 {traceItems.length} 条报表项目来源</p>
+            <p><Tag color="purple">待办</Tag> 导出报表包并归档锁定</p>
+          </div>
+        </Card>
+
+        <Card className="statement-delivery-card" title="平衡校验">
+          <Progress
+            percent={validationProgress}
+            status={validationItems.some((item) => item.status === "failed") ? "exception" : "success"}
+          />
+          <Table
+            rowKey="validation_code"
+            columns={validationColumns}
+            dataSource={validationItems}
+            pagination={false}
+            size="small"
+            scroll={{ x: 620 }}
+            locale={{ emptyText: isLoading ? "正在生成校验结果" : "暂无校验结果" }}
+          />
+        </Card>
+
+        <Card className="statement-delivery-card statement-management-panel" title="管理层摘要">
+          <Title level={5}>{bundle?.management_summary.title ?? "管理报表摘要"}</Title>
           <div className="statement-kpi-list">
             {Object.entries(bundle?.management_summary.key_metrics ?? {}).map(([label, value]) => (
-              <span key={label}>{label} {value}</span>
+              <Tag key={label}>{label} {value}</Tag>
             ))}
           </div>
           <div className="statement-summary-list">
@@ -216,78 +364,85 @@ export default function FinancialStatementPanel({ period }: FinancialStatementPa
               <p key={item}>{item}</p>
             ))}
           </div>
-        </section>
-        <section id="statement-validation-panel" className="panel statement-validation-panel">
-          <div className="panel-header">
-            <div>
-              <span className="eyebrow">校验追溯</span>
-              <h3>报表生成校验</h3>
-            </div>
-          </div>
-          <div className="statement-validation-list">
-            {(bundle?.validation_items ?? []).map((item) => (
-              <p key={item.validation_code} className={`statement-validation statement-validation--${item.status}`}>
-                <strong>{validationLabel(item.status)}</strong>
-                {item.validation_name}：{item.message}
-              </p>
-            ))}
-          </div>
-          <div className="statement-trace-list">
-            {(bundle?.trace_items ?? []).slice(0, 12).map((trace) => (
-              <p key={`${trace.rule_id}-${trace.line_code}`}>
-                <span>{trace.line_code}</span>
-                {trace.formula}，来源 {trace.source_account_codes.join(" / ") || trace.cash_flow_item_codes.join(" / ") || "公式或样例数据"}
-              </p>
-            ))}
-          </div>
-        </section>
+        </Card>
+
+        <Card
+          id="statement-validation-panel"
+          className="statement-delivery-card statement-validation-panel"
+          title="取数追溯"
+        >
+          <Table
+            className="statement-trace-table"
+            rowKey={(item) => `${item.rule_id}-${item.line_code}`}
+            columns={traceColumns}
+            dataSource={traceItems.slice(0, 20)}
+            pagination={{ pageSize: 6, showSizeChanger: false }}
+            scroll={{ x: 860 }}
+            locale={{ emptyText: isLoading ? "正在生成取数追溯" : "暂无追溯数据" }}
+          />
+        </Card>
       </div>
     </section>
   );
 }
 
-function StatementTable({ title, period, items, totals }: StatementTableProps) {
+function StatementTable({ period, items, totals }: StatementTableProps) {
+  const columns: TableColumnsType<StatementLineItem> = [
+    {
+      title: "项目",
+      dataIndex: "name",
+      key: "name",
+      width: 220,
+      fixed: "left",
+      render: (value, item) => (
+        <Space orientation="vertical" size={0}>
+          <Text strong>{value}</Text>
+          <Text type="secondary">{item.code}</Text>
+        </Space>
+      )
+    },
+    {
+      title: "金额",
+      dataIndex: "amount",
+      key: "amount",
+      align: "right",
+      width: 160,
+      render: (value) => money(value)
+    },
+    {
+      title: "取数口径",
+      dataIndex: "formula",
+      key: "formula",
+      ellipsis: true,
+      render: (value) => <Text type="secondary">{value}</Text>
+    }
+  ];
+
   return (
-    <section className="panel statement-table-panel">
-      <div className="panel-header">
-        <div>
-          <span className="eyebrow">{period}</span>
-          <h3>{title}</h3>
-        </div>
-      </div>
-      <div className="voucher-table-wrap">
-        <table className="voucher-table statement-table">
-          <thead>
-            <tr>
-              <th>项目</th>
-              <th>金额</th>
-              <th>取数口径</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length ? items.map((item) => (
-              <tr key={item.code}>
-                <td>{item.name}</td>
-                <td>{money(item.amount)}</td>
-                <td>{item.formula}</td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={3}>暂无报表项目</td>
-              </tr>
-            )}
-          </tbody>
-          <tfoot>
-            {totals.map((total) => (
-              <tr key={total.label}>
-                <td>{total.label}</td>
-                <td>{money(total.value)}</td>
-                <td>自动汇总</td>
-              </tr>
-            ))}
-          </tfoot>
-        </table>
-      </div>
-    </section>
+    <div className="statement-table-panel">
+      <Text type="secondary">{period}</Text>
+      <Table
+        className="statement-table"
+        rowKey="code"
+        columns={columns}
+        dataSource={items}
+        pagination={{ pageSize: 6, showSizeChanger: false }}
+        scroll={{ x: 760 }}
+        locale={{ emptyText: "暂无报表项目" }}
+        summary={() => (
+          totals.length ? (
+            <Table.Summary fixed>
+              {totals.map((total) => (
+                <Table.Summary.Row key={total.label}>
+                  <Table.Summary.Cell index={0}>{total.label}</Table.Summary.Cell>
+                  <Table.Summary.Cell index={1}>{money(total.value)}</Table.Summary.Cell>
+                  <Table.Summary.Cell index={2}>自动汇总</Table.Summary.Cell>
+                </Table.Summary.Row>
+              ))}
+            </Table.Summary>
+          ) : null
+        )}
+      />
+    </div>
   );
 }

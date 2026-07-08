@@ -6,30 +6,15 @@ from PyInstaller.utils.hooks import collect_submodules
 
 
 backend_root = Path(SPECPATH).resolve().parent
-repo_root = backend_root.parent
 assets_root = backend_root / "assets"
-frontend_dist = repo_root / "frontend" / "dist"
 app_hiddenimports = collect_submodules("app")
-webview_hiddenimports = collect_submodules("webview")
-
-datas = []
-if frontend_dist.exists():
-    datas.append((str(frontend_dist), "frontend_dist"))
 
 a = Analysis(
-    [str(backend_root / "app" / "desktop.py")],
+    [str(backend_root / "app" / "updater.py")],
     pathex=[str(backend_root)],
     binaries=[],
-    datas=datas,
-    hiddenimports=[
-        *app_hiddenimports,
-        *webview_hiddenimports,
-        "uvicorn.logging",
-        "uvicorn.loops.auto",
-        "uvicorn.protocols.http.auto",
-        "uvicorn.protocols.websockets.auto",
-        "uvicorn.lifespan.on",
-    ],
+    datas=[],
+    hiddenimports=[*app_hiddenimports],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -45,7 +30,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="ChinaFinanceAIAssistant",
+    name="ChinaFinanceUpdater",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

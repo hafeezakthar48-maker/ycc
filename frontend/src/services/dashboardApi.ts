@@ -141,6 +141,7 @@ import type {
   PeriodClosePeriodResponse
 } from "../types/periodClose";
 import type { PolicySearchResponse } from "../types/policy";
+import type { ApplicationUpdateCheckResult, UpdateCenterStatus, UpdateCheckResult } from "../types/updateCenter";
 import type {
   CounterpartyAgingResponse,
   CounterpartyBalanceResponse,
@@ -630,6 +631,42 @@ export function searchPolicies(
       throw new Error(`法规库检索失败：${response.status}`);
     }
     return response.json() as Promise<PolicySearchResponse>;
+  });
+}
+
+export function fetchUpdateCenterStatus(
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch
+): Promise<UpdateCenterStatus> {
+  return fetcher(`${apiBase}/api/v1/update-center/status`).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`联网更新中心状态读取失败：${response.status}`);
+    }
+    return response.json() as Promise<UpdateCenterStatus>;
+  });
+}
+
+export function checkUpdateCenterNow(
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch
+): Promise<UpdateCheckResult> {
+  return fetcher(`${apiBase}/api/v1/update-center/check`, { method: "POST" }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`联网更新检查失败：${response.status}`);
+    }
+    return response.json() as Promise<UpdateCheckResult>;
+  });
+}
+
+export function checkApplicationUpdateNow(
+  apiBase = API_BASE,
+  fetcher: typeof fetch = fetch
+): Promise<ApplicationUpdateCheckResult> {
+  return fetcher(`${apiBase}/api/v1/update-center/application/check`, { method: "POST" }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`软件本体更新检查失败：${response.status}`);
+    }
+    return response.json() as Promise<ApplicationUpdateCheckResult>;
   });
 }
 

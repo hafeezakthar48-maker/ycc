@@ -1,3 +1,26 @@
+import {
+  Alert,
+  Button,
+  Card,
+  Checkbox,
+  Col,
+  Input,
+  Row,
+  Segmented,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+  Typography
+} from "antd";
+import type { TableColumnsType } from "antd";
+import {
+  CheckCircleOutlined,
+  FileDoneOutlined,
+  LockOutlined,
+  ReloadOutlined,
+  UnlockOutlined
+} from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
 import {
   closePeriod,
@@ -12,21 +35,23 @@ import type {
   PeriodCloseType
 } from "../types/periodClose";
 
+const { Paragraph, Text, Title } = Typography;
+
 interface PeriodClosePanelProps {
   period: string;
 }
 
-const closeActions: Array<{ type: PeriodCloseActionType; label: string }> = [
-  { type: "fixed_asset_depreciation", label: "固定资产折旧" },
-  { type: "payroll_accrual", label: "工资计提" },
-  { type: "tax_accrual", label: "税费计提" },
-  { type: "tax_surtax_accrual", label: "附加税计提" },
-  { type: "accrual_amortization_posting", label: "预提摊销" },
-  { type: "fx_revaluation", label: "外币重估" },
-  { type: "inventory_cost_rollforward", label: "存货成本结转" },
-  { type: "profit_loss_carryforward", label: "损益结转" },
-  { type: "bad_debt_provision", label: "坏账准备" },
-  { type: "year_end_profit_distribution", label: "年终利润分配" }
+const closeActions: Array<{ type: PeriodCloseActionType; label: string; group: string }> = [
+  { type: "fixed_asset_depreciation", label: "固定资产折旧", group: "资产" },
+  { type: "payroll_accrual", label: "工资计提", group: "薪酬" },
+  { type: "tax_accrual", label: "税费计提", group: "税务" },
+  { type: "tax_surtax_accrual", label: "附加税计提", group: "税务" },
+  { type: "accrual_amortization_posting", label: "预提摊销", group: "费用" },
+  { type: "fx_revaluation", label: "外币重估", group: "汇兑" },
+  { type: "inventory_cost_rollforward", label: "存货成本结转", group: "成本" },
+  { type: "profit_loss_carryforward", label: "损益结转", group: "结转" },
+  { type: "bad_debt_provision", label: "坏账准备", group: "往来" },
+  { type: "year_end_profit_distribution", label: "年终利润分配", group: "年结" }
 ];
 
 const defaultActions: PeriodCloseActionType[] = [
@@ -41,19 +66,46 @@ const defaultActions: PeriodCloseActionType[] = [
   "bad_debt_provision"
 ];
 
-function money(value: string | number) {
-  return Number(value).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+const checkStatusLabels: Record<PeriodCloseCheckItem["status"], string> = {
+  passed: "通过",
+  warning: "提醒",
+  failed: "阻断"
+};
 
-function checkStatusLabel(item: PeriodCloseCheckItem) {
-  if (item.status === "passed") {
-    return "通过";
+const checkStatusColors: Record<PeriodCloseCheckItem["status"], string> = {
+  passed: "green",
+  warning: "orange",
+  failed: "red"
+};
+
+const resultStatusLabels: Record<PeriodCloseActionResult["status"], string> = {
+  skipped: "跳过",
+  generated: "已生成",
+  existing: "已存在",
+  failed: "失败"
+};
+
+const resultStatusColors: Record<PeriodCloseActionResult["status"], string> = {
+  skipped: "default",
+  generated: "green",
+  existing: "blue",
+  failed: "red"
+};
+
+function money(value: string | number) {
+  const amount = Number(value);
+  if (Number.isNaN(amount)) {
+    return String(value);
   }
-  return item.status === "warning" ? "提醒" : "阻断";
+  return `¥${amount.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function actionLabel(actionType: PeriodCloseActionType) {
   return closeActions.find((item) => item.type === actionType)?.label ?? actionType;
+}
+
+function actionGroup(actionType: PeriodCloseActionType) {
+  return closeActions.find((item) => item.type === actionType)?.group ?? "其他";
 }
 
 export default function PeriodClosePanel({ period }: PeriodClosePanelProps) {
@@ -70,28 +122,40 @@ export default function PeriodClosePanel({ period }: PeriodClosePanelProps) {
     () => checks.filter((item) => item.status === "failed" && item.severity === "blocker").length,
     [checks]
   );
-  const generatedCount = results.filter((item) => item.status === "generated" || item.status === "existing").length;
+
+  const warningCount = useMemo(
+    () => checks.filter((item) => item.status === "warning").length,
+    [checks]
+  );
+
+  const generatedCount = useMemo(
+    () => results.filter((item) => item.status === "generated" || item.status === "existing").length,
+    [results]
+  );
+
+  const failedResultCount = useMemo(
+    () => results.filter((item) => item.status === "failed").length,
+    [results]
+  );
 
   useEffect(() => {
     setSelectedPeriod(period);
   }, [period]);
 
   useEffect(() => {
-    if (closeType === "year" && !selectedActions.includes("year_end_profit_distribution")) {
-      setSelectedActions((current) => [...current, "year_end_profit_distribution"]);
-    }
-    if (closeType === "month" && selectedActions.includes("year_end_profit_distribution")) {
-      setSelectedActions((current) => current.filter((action) => action !== "year_end_profit_distribution"));
-    }
-  }, [closeType, selectedActions]);
-
-  function toggleAction(actionType: PeriodCloseActionType) {
     setSelectedActions((current) => {
-      if (current.includes(actionType)) {
-        return current.filter((item) => item !== actionType);
+      if (closeType === "year" && !current.includes("year_end_profit_distribution")) {
+        return [...current, "year_end_profit_distribution"];
       }
-      return [...current, actionType];
+      if (closeType === "month" && current.includes("year_end_profit_distribution")) {
+        return current.filter((action) => action !== "year_end_profit_distribution");
+      }
+      return current;
     });
+  }, [closeType]);
+
+  function handleActionSelection(values: Array<string | number | boolean>) {
+    setSelectedActions(values.map(String) as PeriodCloseActionType[]);
   }
 
   function handleChecks() {
@@ -135,132 +199,181 @@ export default function PeriodClosePanel({ period }: PeriodClosePanelProps) {
       .finally(() => setIsBusy(false));
   }
 
+  const resultColumns: TableColumnsType<PeriodCloseActionResult> = [
+    {
+      title: "结账动作",
+      dataIndex: "action_type",
+      key: "action_type",
+      fixed: "left",
+      width: 190,
+      render: (value: PeriodCloseActionType) => (
+        <Space orientation="vertical" size={0}>
+          <Text strong>{actionLabel(value)}</Text>
+          <Text type="secondary">{actionGroup(value)}</Text>
+        </Space>
+      )
+    },
+    {
+      title: "状态",
+      dataIndex: "status",
+      key: "status",
+      width: 120,
+      filters: Object.entries(resultStatusLabels).map(([value, text]) => ({ value, text })),
+      onFilter: (value, result) => result.status === value,
+      render: (value: PeriodCloseActionResult["status"]) => (
+        <Tag color={resultStatusColors[value]}>{resultStatusLabels[value]}</Tag>
+      )
+    },
+    {
+      title: "金额",
+      dataIndex: "amount",
+      key: "amount",
+      align: "right",
+      width: 140,
+      render: (value: string | number) => money(value)
+    },
+    {
+      title: "正式分录",
+      dataIndex: "journal_entry_ids",
+      key: "journal_entry_ids",
+      width: 230,
+      render: (value: string[]) => value.length ? value.join(", ") : "-"
+    },
+    {
+      title: "处理说明",
+      dataIndex: "message",
+      key: "message",
+      width: 280
+    }
+  ];
+
   return (
-    <section id="period-close-panel" className="period-close-panel">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">期间结账</span>
-          <h2>检查、生成、关闭与重开</h2>
-        </div>
-        <div className="qa-status-strip">
-          <span>{selectedPeriod}</span>
-          <span>{closeType === "year" ? "年结" : "月结"}</span>
-          <span>{periodStatus === "closed" ? "已关闭" : "打开"}</span>
-        </div>
-      </div>
-
-      {error ? <p className="inline-error">{error}</p> : null}
-
-      <div className="period-close-toolbar">
-        <label>
-          <span>期间</span>
-          <input value={selectedPeriod} onChange={(event) => setSelectedPeriod(event.target.value)} />
-        </label>
-        <label>
-          <span>类型</span>
-          <select value={closeType} onChange={(event) => setCloseType(event.target.value as PeriodCloseType)}>
-            <option value="month">月结</option>
-            <option value="year">年结</option>
-          </select>
-        </label>
-        <button type="button" className="button-secondary" onClick={handleChecks} disabled={isBusy}>
-          执行检查
-        </button>
-        <button type="button" onClick={handleGenerate} disabled={isBusy || selectedActions.length === 0}>
-          生成分录
-        </button>
-        <button type="button" onClick={handleClose} disabled={isBusy || blockerCount > 0 || periodStatus === "closed"}>
-          关闭期间
-        </button>
-        <button type="button" className="button-secondary" onClick={handleReopen} disabled={isBusy || periodStatus !== "closed"}>
-          重开
-        </button>
-      </div>
-
-      <div className="period-close-action-grid">
-        {closeActions.map((action) => (
-          <label key={action.type} className="period-close-action-toggle">
-            <input
-              type="checkbox"
-              checked={selectedActions.includes(action.type)}
-              onChange={() => toggleAction(action.type)}
-              disabled={closeType === "month" && action.type === "year_end_profit_distribution"}
-            />
-            <span>{action.label}</span>
-          </label>
-        ))}
-      </div>
-
-      <div className="period-close-summary-grid">
-        <article>
-          <span>阻断项</span>
-          <strong>{blockerCount}</strong>
-        </article>
-        <article>
-          <span>检查项</span>
-          <strong>{checks.length}</strong>
-        </article>
-        <article>
-          <span>已生成/已存在</span>
-          <strong>{generatedCount}</strong>
-        </article>
-      </div>
-
-      <div className="period-close-grid">
-        <section className="panel period-close-check-panel">
-          <div className="panel-header">
-            <div>
-              <span className="eyebrow">检查清单</span>
-              <h3>结账前置条件</h3>
-            </div>
+    <section id="period-close-panel" className="period-close-panel period-close-workbench">
+      <Card className="period-close-hero">
+        <div className="period-close-hero-toolbar">
+          <div>
+            <Text className="eyebrow">期间结账</Text>
+            <Title level={3}>期间结账工作台</Title>
+            <Paragraph type="secondary">
+              将结账控制、检查清单、结账动作、生成结果、关闭期间和重开期间放到同一张结账看板，便于月结与年结留痕。
+            </Paragraph>
           </div>
+          <Space wrap>
+            <Tag color="blue">{selectedPeriod}</Tag>
+            <Tag color={periodStatus === "closed" ? "green" : "orange"}>
+              {periodStatus === "closed" ? "已关闭" : "打开"}
+            </Tag>
+            <Button icon={<ReloadOutlined />} loading={isBusy} onClick={handleChecks}>
+              执行检查
+            </Button>
+            <Button type="primary" icon={<FileDoneOutlined />} loading={isBusy} disabled={selectedActions.length === 0} onClick={handleGenerate}>
+              生成期末分录
+            </Button>
+          </Space>
+        </div>
+      </Card>
+
+      {error ? <Alert type="warning" showIcon title={error} /> : null}
+
+      <Card className="period-close-card" title="结账控制">
+        <div className="period-close-toolbar period-close-controlbar">
+          <label>
+            <span>期间</span>
+            <Input value={selectedPeriod} onChange={(event) => setSelectedPeriod(event.target.value)} />
+          </label>
+          <label>
+            <span>类型</span>
+            <Segmented
+              block
+              value={closeType}
+              options={[
+                { label: "月结", value: "month" },
+                { label: "年结", value: "year" }
+              ]}
+              onChange={(value) => setCloseType(value as PeriodCloseType)}
+            />
+          </label>
+          <Space wrap>
+            <Button icon={<CheckCircleOutlined />} onClick={handleChecks} loading={isBusy}>
+              执行检查
+            </Button>
+            <Button type="primary" icon={<LockOutlined />} onClick={handleClose} loading={isBusy} disabled={blockerCount > 0 || periodStatus === "closed"}>
+              关闭期间
+            </Button>
+            <Button icon={<UnlockOutlined />} onClick={handleReopen} loading={isBusy} disabled={periodStatus !== "closed"}>
+              重开期间
+            </Button>
+          </Space>
+        </div>
+      </Card>
+
+      <Row gutter={[16, 16]} className="period-close-summary-grid">
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="period-close-metric">
+            <Statistic title="阻断项" value={blockerCount} prefix={<LockOutlined />} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="period-close-metric">
+            <Statistic title="检查清单" value={checks.length} suffix={`项 / ${warningCount} 提醒`} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="period-close-metric">
+            <Statistic title="生成结果" value={generatedCount} suffix={`/${results.length || 0}`} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <Card size="small" className="period-close-metric">
+            <Statistic title="失败动作" value={failedResultCount} />
+          </Card>
+        </Col>
+      </Row>
+
+      <div className="period-close-layout">
+        <Card className="period-close-card period-close-main" title="生成结果">
+          <Table
+            className="period-close-result-table"
+            rowKey="action_type"
+            columns={resultColumns}
+            dataSource={results}
+            loading={isBusy}
+            pagination={{ pageSize: 6, showSizeChanger: false }}
+            scroll={{ x: 960 }}
+            locale={{ emptyText: "暂无生成结果" }}
+          />
+        </Card>
+
+        <Card className="period-close-card" title="结账动作">
+          <Checkbox.Group value={selectedActions} onChange={handleActionSelection} className="period-close-action-grid">
+            {closeActions.map((action) => (
+              <Checkbox
+                key={action.type}
+                value={action.type}
+                disabled={closeType === "month" && action.type === "year_end_profit_distribution"}
+              >
+                <Space size={6} wrap>
+                  <span>{action.label}</span>
+                  <Tag>{action.group}</Tag>
+                </Space>
+              </Checkbox>
+            ))}
+          </Checkbox.Group>
+        </Card>
+
+        <Card className="period-close-card period-close-check-card" title="检查清单">
           <div className="period-close-check-grid">
             {checks.length ? checks.map((item) => (
               <article className={`period-close-check period-close-check--${item.status}`} key={item.check_code}>
-                <span>{checkStatusLabel(item)}</span>
+                <Tag color={checkStatusColors[item.status]}>{checkStatusLabels[item.status]}</Tag>
                 <strong>{item.check_name}</strong>
-                <p>{item.message}</p>
+                <Text type="secondary">{item.message}</Text>
               </article>
             )) : (
-              <p className="empty-state">暂无检查结果</p>
+              <Text type="secondary">暂无检查结果</Text>
             )}
           </div>
-        </section>
-
-        <section className="panel period-close-result-panel">
-          <div className="panel-header">
-            <div>
-              <span className="eyebrow">期末动作</span>
-              <h3>生成结果</h3>
-            </div>
-          </div>
-          <div className="voucher-table-wrap">
-            <table className="voucher-table period-close-result-table">
-              <thead>
-                <tr>
-                  <th>动作</th>
-                  <th>状态</th>
-                  <th>金额</th>
-                  <th>分录</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.length ? results.map((result) => (
-                  <tr key={result.action_type}>
-                    <td>{actionLabel(result.action_type)}</td>
-                    <td>{result.status}</td>
-                    <td>{money(result.amount)}</td>
-                    <td>{result.journal_entry_ids.length ? result.journal_entry_ids.join(", ") : result.message}</td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={4}>暂无生成结果</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        </Card>
       </div>
     </section>
   );

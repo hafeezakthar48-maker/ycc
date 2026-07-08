@@ -63,13 +63,30 @@ export default function ConsolidationPanel({ period }: ConsolidationPanelProps) 
     setError(null);
     return Promise.all([
       fetchConsolidationGroups(),
-      fetchConsolidationReportingPackage(packageAccountSetId, selectedPeriod),
-      fetchConsolidationEliminations(groupId, selectedPeriod).catch(() => null),
-      fetchConsolidatedStatements(groupId, selectedPeriod).catch(() => null)
+      fetchConsolidationReportingPackage(packageAccountSetId, selectedPeriod)
     ])
-      .then(([groupResponse, packageResponse, eliminationResponse, statementResponse]) => {
+      .then(async ([groupResponse, packageResponse]) => {
+        const nextGroups = groupResponse.groups ?? [];
+        const activeGroupId = nextGroups.some((group) => group.group_id === groupId)
+          ? groupId
+          : nextGroups[0]?.group_id;
+
         setGroups(groupResponse.groups ?? []);
         setReportingPackage(packageResponse);
+        if (!activeGroupId) {
+          setEliminations([]);
+          setStatements(null);
+          return;
+        }
+
+        if (activeGroupId !== groupId) {
+          setGroupId(activeGroupId);
+        }
+
+        const [eliminationResponse, statementResponse] = await Promise.all([
+          fetchConsolidationEliminations(activeGroupId, selectedPeriod).catch(() => null),
+          fetchConsolidatedStatements(activeGroupId, selectedPeriod).catch(() => null)
+        ]);
         setEliminations(eliminationResponse?.eliminations ?? []);
         setStatements(statementResponse);
       })

@@ -2,7 +2,7 @@
 
 ## Windows 桌面安装包
 
-已支持构建 Windows x64 离线安装包，目标电脑无需安装 Python、Node.js 或 npm。当前可靠发行物为 `output/ChinaFinanceAIAssistant-Windows-x64.zip`，解压后运行 `install.ps1` 即可安装到 `%LOCALAPPDATA%\Programs\ChinaFinanceAIAssistant`，用户数据写入 `%LOCALAPPDATA%\ChinaFinanceAIAssistant`。详细步骤见 [Windows 桌面安装包](docs/windows-installation.md)。
+已支持构建 Windows x64 独立桌面发行包，目标电脑无需安装 Python、Node.js、npm 或 PowerShell 脚本依赖。当前可靠发行物为 `output/ChinaFinanceAIAssistant-Windows-x64.zip`，解压后双击 `ChinaFinanceAIAssistant.exe` 即可打开独立桌面窗口；发行包同时携带原生 `ChinaFinanceUpdater.exe`，用于后续软件本体升级。用户数据写入 `%LOCALAPPDATA%\ChinaFinanceAIAssistant`。桌面版内置联网更新中心，可在配置 HTTPS 更新清单后，每月 1 号自动检查法规、税率、政策数据包和软件本体更新。详细步骤见 [Windows 桌面安装包](docs/windows-installation.md)。
 
 ## Phase 16 正式核算上线治理
 
@@ -29,7 +29,7 @@
 - AI 报告导出 Word / PDF
 - 电商利润分析：GMV、退款、成本、投放、平台费、物流和净利润测算
 - AI 财务问答：基于本地法规卡片返回答案、引用依据、检查清单和人工复核提示
-- 财税法规库 RAG 底座：结构化政策文档、关键词检索、片段命中、来源链接和状态标记
+- 财税法规库 RAG 底座：结构化政策文档、关键词检索、片段命中、来源链接、状态标记和月度联网政策包更新
 - OCR 发票识别 MVP：支持粘贴 OCR 文本或上传 `.txt` 文本文件，提取发票号码、购销方税号、金额、税额和价税合计，并给出基础合规风险提示
 - 凭证中心 MVP：支持新增、修改、审核、反审核、过账、反过账、自动编号、JSON 批量导入、CSV 导出、附件上传记录、AI 凭证错误检查、轻量多账套隔离、账套期间状态和账簿只读视图
 - 正式会计核算引擎一期：已审核凭证可正式过账为不可变会计分录，账簿和财务报表优先读取正式分录来源，反过账通过冲销分录保留审计轨迹

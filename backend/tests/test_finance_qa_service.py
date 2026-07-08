@@ -25,7 +25,9 @@ def test_answer_finance_question_requires_review_for_unknown_policy_question():
     )
 
     assert response.intent == "unknown"
-    assert response.confidence < 0.5
+    assert 0.3 <= response.confidence < 0.5
     assert response.requires_human_review is True
     assert response.latest_policy_check_required is True
-    assert "未匹配到足够可靠的本地法规卡片" in response.answer
+    assert "本地法规库已匹配到基础法规卡片" in response.answer
+    assert "不能据此判断最新地方优惠" in response.answer
+    assert {citation.title for citation in response.citations} >= {"中华人民共和国企业所得税法"}
