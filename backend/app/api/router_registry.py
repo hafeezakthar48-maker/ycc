@@ -4,6 +4,7 @@ from app.api.accounting import router as accounting_router
 from app.api.accounting_archive import router as accounting_archive_router
 from app.api.accounting_governance import router as accounting_governance_router
 from app.api.accrual_amortization import router as accrual_amortization_router
+from app.api.app_settings import router as app_settings_router
 from app.api.audit import router as audit_router
 from app.api.bank_reconciliation import router as bank_reconciliation_router
 from app.api.consolidation import router as consolidation_router
@@ -35,6 +36,7 @@ def include_api_routers(app: FastAPI) -> None:
     app.include_router(accounting_archive_router)
     app.include_router(accounting_governance_router)
     app.include_router(accrual_amortization_router)
+    app.include_router(app_settings_router)
     app.include_router(bank_reconciliation_router)
     app.include_router(consolidation_router)
     app.include_router(modules_router)
