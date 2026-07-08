@@ -1,4 +1,4 @@
-﻿# China Finance AI Assistant MVP 设计规格
+# China Finance AI Assistant MVP 设计规格
 
 ## 1. 项目定位
 
@@ -312,4 +312,3 @@ D:\codex-project\中国财务AI助手\
 - 所有税务相关措辞保持谨慎，不编造法规引用。
 - 后端指标和风险规则有自动化测试覆盖。
 - 前端桌面和移动视口无明显遮挡、溢出或空白图表。
-

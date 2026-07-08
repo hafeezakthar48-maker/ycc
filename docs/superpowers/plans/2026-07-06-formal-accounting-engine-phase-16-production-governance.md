@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立正式核算版本上线所需的数据迁移、完整性校验、备份恢复、权限矩阵、性能基线和验收清单。  
-**Architecture:** 新增 `accounting_governance`、`migration`、`backup` 和 `integrity_check` 服务，作为正式核算引擎的上线控制层。该层不产生新的业务核算口径，只检查和保护已有正式分录、账簿、报表、归档和权限配置，确保实施前后可审计、可回滚、可验收。  
+**Goal:** 建立正式核算版本上线所需的数据迁移、完整性校验、备份恢复、权限矩阵、性能基线和验收清单。
+**Architecture:** 新增 `accounting_governance`、`migration`、`backup` 和 `integrity_check` 服务，作为正式核算引擎的上线控制层。该层不产生新的业务核算口径，只检查和保护已有正式分录、账簿、报表、归档和权限配置，确保实施前后可审计、可回滚、可验收。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner、PowerShell。
 
 ---

@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将现有固定资产台账 MVP 升级为正式固定资产核算模块，支持资产卡片、折旧、减值、处置和正式分录生成。  
-**Architecture:** 新增 `fixed_asset_accounting` 服务作为正式核算层，现有 `fixed_asset_service` 继续承载资产录入和生命周期动作。正式资产核算层从资产卡片和期间动作生成不可变正式分录，并将折旧、减值、清理和处置损益接入期末处理。  
+**Goal:** 将现有固定资产台账 MVP 升级为正式固定资产核算模块，支持资产卡片、折旧、减值、处置和正式分录生成。
+**Architecture:** 新增 `fixed_asset_accounting` 服务作为正式核算层，现有 `fixed_asset_service` 继续承载资产录入和生命周期动作。正式资产核算层从资产卡片和期间动作生成不可变正式分录，并将折旧、减值、清理和处置损益接入期末处理。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 
 ---

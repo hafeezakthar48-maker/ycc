@@ -1,4 +1,4 @@
-﻿# China Finance AI Assistant MVP Local Deployment Implementation Plan
+# China Finance AI Assistant MVP Local Deployment Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1081,4 +1081,3 @@ Verify:
 - Git constraint: plan contains no Git commit, branch, push or PR step.
 - Compliance wording: risk service uses prudent review language and does not assert confirmed violation.
 - Type consistency: backend model names map to frontend TypeScript interfaces and chart inputs.
-

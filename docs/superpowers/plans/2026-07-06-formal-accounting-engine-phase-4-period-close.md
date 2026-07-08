@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 在正式核算一至三期基础上，建立月末期末处理与结账引擎，支持结账检查、固定资产折旧、工资计提、税费计提、外币期末重估、损益结转、期间关闭与重开审计。  
-**Architecture:** 新增 `period_close` 领域模型与服务层，所有期末结果都以正式分录写入，不直接改写历史分录。`close_accounting_period` 从单纯改期间状态升级为“检查清单通过 + 期末分录生成 + 关闭审计记录”的编排流程；每类期末动作使用稳定的 `source_type` / `source_id` 实现幂等。  
+**Goal:** 在正式核算一至三期基础上，建立月末期末处理与结账引擎，支持结账检查、固定资产折旧、工资计提、税费计提、外币期末重估、损益结转、期间关闭与重开审计。
+**Architecture:** 新增 `period_close` 领域模型与服务层，所有期末结果都以正式分录写入，不直接改写历史分录。`close_accounting_period` 从单纯改期间状态升级为“检查清单通过 + 期末分录生成 + 关闭审计记录”的编排流程；每类期末动作使用稳定的 `source_type` / `source_id` 实现幂等。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 ---
 

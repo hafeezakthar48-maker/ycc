@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立增值税、附加税、企业所得税和纳税支付的正式核算与申报底稿能力。  
-**Architecture:** 新增 `tax_accounting` 模型和服务，从正式分录、发票结构化结果和税务调整事项生成税务台账。申报底稿只作为计算和复核依据，正式纳税义务和缴款通过正式分录记录，不自动提交税务申报。  
+**Goal:** 建立增值税、附加税、企业所得税和纳税支付的正式核算与申报底稿能力。
+**Architecture:** 新增 `tax_accounting` 模型和服务，从正式分录、发票结构化结果和税务调整事项生成税务台账。申报底稿只作为计算和复核依据，正式纳税义务和缴款通过正式分录记录，不自动提交税务申报。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 
 ---

@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 在正式报表映射基础上，建立财务报表快照、版本锁定、Excel/PDF 导出、归档审计和期间关闭后的重生成策略。  
-**Architecture:** 报表导出必须基于可追溯的 `statement_snapshot`，而不是每次下载时临时重算。后端新增快照归档服务和报表导出服务，快照保存报表包 JSON、映射集、校验结果、内容哈希、版本号和锁定状态；导出服务从快照渲染 Excel/PDF；前端在财务报表面板中增加快照列表、锁定、归档和下载入口。  
+**Goal:** 在正式报表映射基础上，建立财务报表快照、版本锁定、Excel/PDF 导出、归档审计和期间关闭后的重生成策略。
+**Architecture:** 报表导出必须基于可追溯的 `statement_snapshot`，而不是每次下载时临时重算。后端新增快照归档服务和报表导出服务，快照保存报表包 JSON、映射集、校验结果、内容哈希、版本号和锁定状态；导出服务从快照渲染 Excel/PDF；前端在财务报表面板中增加快照列表、锁定、归档和下载入口。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、hashlib、zipfile、pytest、React、TypeScript、Vite、Node test runner。
 ---
 

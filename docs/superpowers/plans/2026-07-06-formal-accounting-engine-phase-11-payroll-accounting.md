@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将工资管理 MVP 升级为正式薪酬核算模块，支持工资计提、社保公积金计提、个税代扣、工资支付和正式分录生成。  
-**Architecture:** 新增 `payroll_accounting` 模型和服务，工资计算结果继续由现有 `payroll_service` 生成，正式核算层负责把工资、企业社保、公积金、个税和实发工资转为应付职工薪酬、其他应付款、应交税费和银行付款分录。  
+**Goal:** 将工资管理 MVP 升级为正式薪酬核算模块，支持工资计提、社保公积金计提、个税代扣、工资支付和正式分录生成。
+**Architecture:** 新增 `payroll_accounting` 模型和服务，工资计算结果继续由现有 `payroll_service` 生成，正式核算层负责把工资、企业社保、公积金、个税和实发工资转为应付职工薪酬、其他应付款、应交税费和银行付款分录。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 
 ---

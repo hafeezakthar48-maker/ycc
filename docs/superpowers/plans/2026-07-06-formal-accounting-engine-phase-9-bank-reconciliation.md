@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立银行账户、银行流水导入、资金日记账核对、收付款匹配和银行余额调节表能力。  
-**Architecture:** 新增 `bank_reconciliation` 领域模型和服务，银行流水作为外部资金事实，正式分录中的货币资金科目作为账务事实。系统通过金额、日期、交易对方、摘要和来源编号生成候选匹配，人工确认后形成只追加的对账记录，不改写正式分录或银行流水。  
+**Goal:** 建立银行账户、银行流水导入、资金日记账核对、收付款匹配和银行余额调节表能力。
+**Architecture:** 新增 `bank_reconciliation` 领域模型和服务，银行流水作为外部资金事实，正式分录中的货币资金科目作为账务事实。系统通过金额、日期、交易对方、摘要和来源编号生成候选匹配，人工确认后形成只追加的对账记录，不改写正式分录或银行流水。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 
 ---

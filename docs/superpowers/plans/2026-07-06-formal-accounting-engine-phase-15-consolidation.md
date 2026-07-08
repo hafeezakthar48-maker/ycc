@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立多账套合并报表、内部往来匹配、内部交易抵销和合并工作底稿能力。  
-**Architecture:** 新增 `consolidation` 模型和服务，单体账套继续由正式核算引擎生成报表，合并层读取各账套正式报表和科目余额，按合并范围、持股比例和抵销规则生成合并工作底稿。抵销分录只存在于合并层，不回写单体账套正式分录。  
+**Goal:** 建立多账套合并报表、内部往来匹配、内部交易抵销和合并工作底稿能力。
+**Architecture:** 新增 `consolidation` 模型和服务，单体账套继续由正式核算引擎生成报表，合并层读取各账套正式报表和科目余额，按合并范围、持股比例和抵销规则生成合并工作底稿。抵销分录只存在于合并层，不回写单体账套正式分录。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 
 ---

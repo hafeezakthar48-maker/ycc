@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 在正式分录、辅助核算和期末处理基础上，建立应收应付与往来核算模块，支持客户/供应商往来余额、账龄、核销、收付款匹配和坏账准备。  
-**Architecture:** 新增 `receivable_payable` 领域模型和服务，核心对象为从正式分录生成的往来未清项 `open_item`。应收应付余额、账龄和风险提示从正式分录行与客户/供应商辅助维度推导；核销记录只记录匹配关系和已核销金额，不改写历史分录；坏账准备通过期末动作生成正式分录。  
+**Goal:** 在正式分录、辅助核算和期末处理基础上，建立应收应付与往来核算模块，支持客户/供应商往来余额、账龄、核销、收付款匹配和坏账准备。
+**Architecture:** 新增 `receivable_payable` 领域模型和服务，核心对象为从正式分录生成的往来未清项 `open_item`。应收应付余额、账龄和风险提示从正式分录行与客户/供应商辅助维度推导；核销记录只记录匹配关系和已核销金额，不改写历史分录；坏账准备通过期末动作生成正式分录。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 ---
 

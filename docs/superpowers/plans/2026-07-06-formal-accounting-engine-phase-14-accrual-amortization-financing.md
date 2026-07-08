@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立预付摊销、待摊费用、预提费用、递延收入和借款利息的正式月结核算能力。  
-**Architecture:** 新增 `accrual_amortization` 领域模型和服务，以核算计划表驱动每月自动分录。每个计划生成的分录使用账套、期间和计划编号作为幂等 source key，月结服务统一调度，人工可暂停、终止或调整计划。  
+**Goal:** 建立预付摊销、待摊费用、预提费用、递延收入和借款利息的正式月结核算能力。
+**Architecture:** 新增 `accrual_amortization` 领域模型和服务，以核算计划表驱动每月自动分录。每个计划生成的分录使用账套、期间和计划编号作为幂等 source key，月结服务统一调度，人工可暂停、终止或调整计划。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 
 ---

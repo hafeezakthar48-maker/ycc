@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 在正式核算与报表归档基础上，建立电子凭证和会计档案底座，支持来源文件留存、文件哈希、OCR/验真状态、凭证附件归档、保管期限、档案目录和归档审计。  
-**Architecture:** 新增 `accounting_archive` 领域模型与服务，凭证中心附件上传后生成可归档的电子凭证文档，文档通过 `source_type/source_id` 关联凭证、正式分录、固定资产、工资批次或报表快照。归档服务只保存文件元数据、内容哈希、可选文本内容和档案状态，不伪造 OCR 或验真结论；真实 OCR/发票验真引擎缺失时记录 `verification_status="pending_external"`。  
+**Goal:** 在正式核算与报表归档基础上，建立电子凭证和会计档案底座，支持来源文件留存、文件哈希、OCR/验真状态、凭证附件归档、保管期限、档案目录和归档审计。
+**Architecture:** 新增 `accounting_archive` 领域模型与服务，凭证中心附件上传后生成可归档的电子凭证文档，文档通过 `source_type/source_id` 关联凭证、正式分录、固定资产、工资批次或报表快照。归档服务只保存文件元数据、内容哈希、可选文本内容和档案状态，不伪造 OCR 或验真结论；真实 OCR/发票验真引擎缺失时记录 `verification_status="pending_external"`。
 **Tech Stack:** FastAPI、Pydantic、SQLite、hashlib、zipfile、pytest、React、TypeScript、Vite、Node test runner。
 ---
 

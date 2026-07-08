@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立正式存货台账、入库出库、移动加权成本、销售成本结转、存货跌价准备和库存账实核对能力。  
-**Architecture:** 新增 `inventory_accounting` 模型和服务，库存业务流水作为数量事实，正式分录作为金额事实。系统按 SKU、仓库和账套维护库存移动流水，采用移动加权平均成本计算出库成本，并通过正式分录结转主营业务成本、存货跌价和盘盈盘亏。  
+**Goal:** 建立正式存货台账、入库出库、移动加权成本、销售成本结转、存货跌价准备和库存账实核对能力。
+**Architecture:** 新增 `inventory_accounting` 模型和服务，库存业务流水作为数量事实，正式分录作为金额事实。系统按 SKU、仓库和账套维护库存移动流水，采用移动加权平均成本计算出库成本，并通过正式分录结转主营业务成本、存货跌价和盘盈盘亏。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 
 ---
@@ -355,8 +355,8 @@ def record_inventory_impairment(account_set_id: str, sku_id: str, period: str, a
 
 - [ ] **Step 3: Add inventory count variance handling**
 
-盘盈：借记 `1405 库存商品`，贷记 `1901 待处理财产损溢`。  
-盘亏：借记 `1901 待处理财产损溢`，贷记 `1405 库存商品`。  
+盘盈：借记 `1405 库存商品`，贷记 `1901 待处理财产损溢`。
+盘亏：借记 `1901 待处理财产损溢`，贷记 `1405 库存商品`。
 审批后：转入 `6711 营业外支出`、`6301 营业外收入` 或责任人往来科目。
 
 - [ ] **Step 4: Run impairment and count tests**

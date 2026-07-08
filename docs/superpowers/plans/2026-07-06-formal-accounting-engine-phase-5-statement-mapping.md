@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把现有财务报表 MVP 升级为正式报表映射与取数引擎，支持资产负债表、利润表、现金流量表和所有者权益变动表的配置化映射、生成追溯、公式校验和现金流项目映射。  
-**Architecture:** 新增报表映射模型与服务，报表项目不再硬编码在 `financial_statement_service.py` 中，而是通过默认中国企业会计准则映射集计算。正式报表生成读取正式账簿、期末处理结果和现金流项目映射，返回每个报表项目的取数规则、来源科目、金额和校验结果；前端在报表面板中增加映射配置与追溯视图。  
+**Goal:** 把现有财务报表 MVP 升级为正式报表映射与取数引擎，支持资产负债表、利润表、现金流量表和所有者权益变动表的配置化映射、生成追溯、公式校验和现金流项目映射。
+**Architecture:** 新增报表映射模型与服务，报表项目不再硬编码在 `financial_statement_service.py` 中，而是通过默认中国企业会计准则映射集计算。正式报表生成读取正式账簿、期末处理结果和现金流项目映射，返回每个报表项目的取数规则、来源科目、金额和校验结果；前端在报表面板中增加映射配置与追溯视图。
 **Tech Stack:** FastAPI、Pydantic、SQLite、Decimal、pytest、React、TypeScript、Vite、Node test runner。
 ---
 
