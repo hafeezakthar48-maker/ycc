@@ -1,0 +1,113 @@
+{
+  "version": "2026.07.09",
+  "published_at": "2026-07-09T20:00:14+08:00",
+  "generated_by": "ChinaFinanceAIAssistant update center",
+  "documents": [
+    {
+      "id": "vat-law-2026",
+      "title": "中华人民共和国增值税法",
+      "authority": "全国人民代表大会常务委员会",
+      "document_number": null,
+      "category": "税收法规",
+      "published_date": "2024-12-25",
+      "effective_date": "2026-01-01",
+      "status": "全文有效",
+      "source_url": "https://fgk.chinatax.gov.cn/zcfgk/c100009/c5237365/content.html",
+      "updated_at": "2026-07-09",
+      "keywords": [
+        "增值税",
+        "税率",
+        "应纳税额",
+        "电子发票",
+        "纳税申报"
+      ],
+      "summary": "增值税法自 2026 年 1 月 1 日起施行，是增值税征收、缴纳、税收优惠和征收管理的上位规则。",
+      "content": "用于识别增值税相关风险：应税交易范围、税率适用、进项与销项、纳税期限、电子发票法律效力和出口零税率等事项。正式处理前应以主管税务机关和官方原文为准。"
+    },
+    {
+      "id": "vat-implementation-regulation-2026",
+      "title": "中华人民共和国增值税法实施条例",
+      "authority": "国务院",
+      "document_number": "国务院令第826号",
+      "category": "税收法规",
+      "published_date": "2025-12-25",
+      "effective_date": "2026-01-01",
+      "status": "全文有效",
+      "source_url": "https://fgk.chinatax.gov.cn/zcfgk/c100010/c5246349/content.html",
+      "updated_at": "2026-07-09",
+      "keywords": [
+        "增值税法实施条例",
+        "一般计税",
+        "简易计税",
+        "纳税义务",
+        "扣缴"
+      ],
+      "summary": "实施条例细化增值税法中的货物、服务、无形资产、不动产、一般纳税人、计税方法和征收管理口径。",
+      "content": "用于补充增值税法落地口径：服务和无形资产范围、境内消费判断、一般计税与简易计税、发票开具和扣缴义务等。系统提示仅作为财务复核线索。"
+    },
+    {
+      "id": "invoice-management-measures-2023",
+      "title": "中华人民共和国发票管理办法",
+      "authority": "国务院",
+      "document_number": "财政部令第6号及后续修订",
+      "category": "发票管理",
+      "published_date": "2023-07-20",
+      "effective_date": "2023-07-20",
+      "status": "全文有效",
+      "source_url": "https://fgk.chinatax.gov.cn/zcfgk/c100010/c5195084/content.html",
+      "updated_at": "2026-07-09",
+      "keywords": [
+        "发票",
+        "电子发票",
+        "开具",
+        "取得",
+        "保管",
+        "缴销"
+      ],
+      "summary": "发票管理办法规定发票印制、领用、开具、取得、保管、缴销及监督管理的基本规则。",
+      "content": "用于发票 OCR 与票据风险提示：关注电子发票同等法律效力、开具和取得场景、发票保管、禁止伪造变造及异常发票处理。"
+    },
+    {
+      "id": "invoice-implementation-rules-2024",
+      "title": "中华人民共和国发票管理办法实施细则",
+      "authority": "国家税务总局",
+      "document_number": "国家税务总局令第56号",
+      "category": "发票管理",
+      "published_date": "2024-01-15",
+      "effective_date": "2024-03-01",
+      "status": "全文有效",
+      "source_url": "https://fgk.chinatax.gov.cn/zcfgk/c100011/c5221006/content.html",
+      "updated_at": "2026-07-09",
+      "keywords": [
+        "发票实施细则",
+        "数电发票",
+        "电子发票",
+        "发票数据安全",
+        "税前扣除"
+      ],
+      "summary": "实施细则补充电子发票、发票数据安全、纸质发票要素和以其他凭证代替发票使用等监管规则。",
+      "content": "用于识别数电发票和数据合规风险：电子发票不得拒收、税务机关电子发票服务平台、发票数据安全义务，以及不合规凭证用于抵扣或报销的风险。"
+    },
+    {
+      "id": "mof-accounting-qa-fixed-assets-2025",
+      "title": "财政部会计司固定资产准则实施问答",
+      "authority": "财政部会计司",
+      "document_number": null,
+      "category": "会计准则",
+      "published_date": "2025-04-17",
+      "effective_date": "2025-04-17",
+      "status": "需复核",
+      "source_url": "https://kjs.mof.gov.cn/zt/kjzzss/sswd/",
+      "updated_at": "2026-07-09",
+      "keywords": [
+        "固定资产",
+        "折旧年限",
+        "后续支出",
+        "资本化",
+        "会计估计"
+      ],
+      "summary": "财政部会计司实施问答提示固定资产后续支出、折旧年限和会计估计变更需结合准则条件判断。",
+      "content": "用于固定资产核算复核：改造支出是否资本化、折旧年限是否变更、日常修理费用处理等，应结合企业会计准则和具体事实判断。"
+    }
+  ]
+}
