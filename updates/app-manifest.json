@@ -1,0 +1,8 @@
+{
+    "version":  "0.2.0",
+    "published_at":  "2026-07-09T19:20:00+08:00",
+    "package_url":  "https://github.com/hafeezakthar48-maker/ycc/releases/download/v0.2.0/ChinaFinanceAIAssistant-Windows-x64.zip",
+    "sha256":  "ae2bfb520a0f571450d709569829b12fbb56bb8992e5f725911e83d5d717c0a9",
+    "summary":  "工作台搜索栏接入财务 Codex，修复首次自动提交，并接入 GitHub HTTPS 更新源。",
+    "mandatory":  false
+}
