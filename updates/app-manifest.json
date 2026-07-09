@@ -1,8 +1,8 @@
 {
-    "version":  "0.2.1",
-    "published_at":  "2026-07-09T19:52:49+08:00",
-    "package_url":  "https://github.com/hafeezakthar48-maker/ycc/releases/download/v0.2.1/ChinaFinanceAIAssistant-Windows-x64.zip",
-    "sha256":  "d9cfef93e3681d693efe1baa694b55a48a367253f16c7ec16bfa1027d02704de",
-    "summary":  "China Finance AI Assistant v0.2.1 update package",
+    "version":  "0.2.2",
+    "published_at":  "2026-07-09T20:42:40+08:00",
+    "package_url":  "https://github.com/hafeezakthar48-maker/ycc/releases/download/v0.2.2/ChinaFinanceAIAssistant-Windows-x64.zip",
+    "sha256":  "0f0640bb5381ff61c028cf98fb79c11e2c280733b91c90a7e3fd240f46075e2b",
+    "summary":  "China Finance AI Assistant v0.2.2 update package",
     "mandatory":  false
 }
